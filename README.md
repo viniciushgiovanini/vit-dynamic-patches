@@ -8,7 +8,7 @@
 python -m venv venv
 ```
 
-- Entre na venmv (Windows Powershell)
+- Entre na venv (Windows Powershell)
 
 ```shell
 cd venv/Scripts/

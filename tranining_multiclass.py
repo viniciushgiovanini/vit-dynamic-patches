@@ -1,13 +1,7 @@
 import torch
-import torch.nn as nn
 import torchvision.transforms as T
-from torch.optim import Adam
-import torchvision.models as models
-from transformers import ViTForImageClassification, ViTFeatureExtractor
 import torchvision
-
 import matplotlib.pyplot as plt
-
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 import sys
@@ -15,13 +9,12 @@ import time
 import shutil
 import pandas as pd
 import os
-
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger, TensorBoardLogger
 from torchvision.datasets import ImageFolder
-
-
 from lightning.pytorch.accelerators import find_usable_cuda_devices
+from pytorch_lightning.callbacks import ModelCheckpoint
+from modelo import Modelo
 
 # Identificar GPUs disponíveis
 devices = find_usable_cuda_devices()
@@ -39,8 +32,8 @@ print ('Current cuda device ', torch.cuda.current_device())
 
 start_time = time.time()
 batch_size = 32
-num_epochs = 60
-learning_rate = 0.0001
+num_epochs = 10
+learning_rate = 0.001
 # learning_rate = 0.00001
 
 train_data_path = './data/base_treinamento/train/'
@@ -76,84 +69,29 @@ total_steps = 50
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"\n\n Device ---> {device} and Current Device --> {torch.cuda.current_device()}\n\n")
 
-class Modelo(pl.LightningModule):
-    def __init__(self):
-        super(Modelo, self).__init__()
-        # Carregar um modelo pré-treinado
-        self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224', num_labels=num_classes, ignore_mismatched_sizes=True)
-        print(self.model)
-        self.model.to(device)
-        print("----------------------------------------------------------------")
-        for param in self.model.parameters():
-            param.requires_grad = False
-            
-        for param in self.model.classifier.parameters():
-            param.requires_grad = True
-            
-        self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(128, num_classes)
-        )
-
-        self.criterion = nn.CrossEntropyLoss()
-        print(self.model)
-        print("----------------------------------------------------------------")
-        # for name, module in self.model.named_modules():
-        #   print(f"{name}: {module}")
-
-    def forward(self, x):
-        logits = self.model(x).logits
-        return logits
-
-    def training_step(self, batch, batch_idx):
-        images, labels = batch
-        images, labels = images.to(device), labels.to(device)
-        logits = self(images)
-        loss = self.criterion(logits, labels)
-        _, predicted = torch.max(logits, 1)
-        accuracy = (predicted == labels).float().mean()
-                
-        self.log('train_loss', loss, prog_bar=True)
-        self.log('train_accuracy', accuracy, prog_bar=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        images, labels = batch
-        images, labels = images.to(device), labels.to(device)
-        logits = self(images)
-        loss = self.criterion(logits, labels)
-        _, predicted = torch.max(logits, 1)
-        accuracy = (predicted == labels).float().mean()
-        self.log('val_loss', loss, prog_bar=True)
-        self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
-        return optimizer
-
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=11)
 val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 
-modelo = Modelo()
+model = Modelo(num_classes, learning_rate)
 
 csv_logger = CSVLogger(
     save_dir='./lightning_logs/',
     name='csv_file'
 )
 
-trainer = pl.Trainer(max_epochs=num_epochs,  limit_train_batches= total_steps,limit_val_batches=total_steps, log_every_n_steps=1, logger=[csv_logger, TensorBoardLogger("./lightning_logs/")], accelerator="gpu", devices="auto")
+checkpoint_callback = ModelCheckpoint(
+    monitor='val_loss',
+    dirpath='models/checkpoint/',
+    filename='best-checkpoint',
+    save_top_k=1,
+    mode='min'
+)
 
-trainer.fit(modelo, train_loader, val_loader)
+trainer = pl.Trainer(max_epochs=num_epochs,  limit_train_batches= total_steps,limit_val_batches=total_steps, log_every_n_steps=1, logger=[csv_logger, TensorBoardLogger("./lightning_logs/")], accelerator="gpu", devices="auto", callbacks=[checkpoint_callback])
 
-torch.save(modelo.state_dict(), './models/modelo_vit_gpu.pth')
+trainer.fit(model, train_loader, val_loader)
+
+torch.save(model.state_dict(), './models/modelo_vit_gpu.pth')
 
 df = pd.read_csv('./lightning_logs/csv_file/version_0/metrics.csv')
 
@@ -167,13 +105,6 @@ val_loss_uniques = []
 
 for epoch in df['epoch'].unique():
     dados_epoca = df[df['epoch'] == epoch]
-    
-    # filtered_df = dados_epoca.tail(2)
-    
-    # train_accuracy_mean = filtered_df.iloc[0]["train_accuracy"]
-    # train_loss_mean = filtered_df.iloc[0]["train_loss"]
-    # val_accuracy_unique = filtered_df.iloc[1]["val_accuracy"]
-    # val_loss_unique = filtered_df.iloc[1]["val_loss"]
     
     train_accuracy_mean = dados_epoca['train_accuracy'].mean()
     
@@ -234,5 +165,16 @@ def calcular_acuracia(model, dataloader):
 
 # Calcular a acurácia no conjunto de teste
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
-accuracy = calcular_acuracia(modelo, test_loader)
+accuracy = calcular_acuracia(model, test_loader)
 print(f"Acurácia no conjunto de teste: {accuracy * 100:.2f}%")
+
+
+best_model_path = checkpoint_callback.best_model_path
+print(f"Best model path: {best_model_path}")
+model.load_state_dict(torch.load(best_model_path)['state_dict'])
+
+model.to(device)
+
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
+accuracy = calcular_acuracia(model, test_loader)
+print(f"Acurácia no conjunto de teste (Melhor ponto do modelo): {accuracy * 100:.2f}%")

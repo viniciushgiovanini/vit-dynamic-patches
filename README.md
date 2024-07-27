@@ -31,25 +31,48 @@ pip list
 - Todos os notebooks estão lendo dados da pasta **data**.
 
 ```md
-data/
-│
-├── base/
-│   └── img.png
-│
-├── base_recortada/
-│    │
-│    ├── LSIL
-│    │   └── img.png
-│    │
-│    ├── Negative for intraepithelial lesion
-│        └── img.png
-│
-└── base_temporaria/
-    └── img.png
+├── README.md
+├── avaliar-modelo.py
+├── data
+│   ├── base
+│   ├── base_balanceada
+│   ├── base_mascara
+│   ├── base_mascara_70_value_expand.zip
+│   ├── base_mascara_90_value_expand.zip
+│   ├── base_recortada
+│   ├── base_temporaria
+│   ├── base_treinamento
+│   ├── classifications.csv
+│   └── classifications.txt
+├── env
+├── grafico-animado.py
+├── graph
+├── modelo.py
+├── models
+├── notebook
+│   ├── balanceamento.ipynb
+│   ├── crop.ipynb
+│   ├── divisao.ipynb
+│   ├── heatmap.ipynb
+│   ├── mask.ipynb
+│   ├── mask_genertion.ipynb
+│   └── test
+├── requirements.txt
+├── tranining_multiclass.py
+└── validacao.ipynb
 ```
 
 - O path **base** contém o dataset original, e o **base_temporaria** é uma copia, para manter os dados.
 - O path **base_recortada**, possui subpastas com cada tipo de célula e com as celulas recortada de um tamanho 100 para os lados por padrão.
+
+## Verificação do CUDA
+
+- Verifique a versão do Cuda instalada por default no WSL2
+```
+nvidia-smi
+watch -n 1 nvidia-smi
+```
+
 
 ## Linguagens de Desenvolvimento
 

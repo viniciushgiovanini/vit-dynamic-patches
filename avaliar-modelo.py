@@ -4,7 +4,7 @@ import torchvision.transforms as T
 from torchvision.datasets import ImageFolder
 from transformers import ViTForImageClassification
 import os
-from modelo import Modelo
+from Class.modelo import Modelo
 
 
 num_classes = 6

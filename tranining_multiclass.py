@@ -14,7 +14,9 @@ from pytorch_lightning.loggers import CSVLogger, TensorBoardLogger
 from torchvision.datasets import ImageFolder
 from lightning.pytorch.accelerators import find_usable_cuda_devices
 from pytorch_lightning.callbacks import ModelCheckpoint
-from modelo import Modelo
+from classes.modelo_custom import ModeloCustom
+from classes.modelo import Modelo
+
 
 # Identificar GPUs disponíveis
 devices = find_usable_cuda_devices()
@@ -72,7 +74,8 @@ print(f"\n\n Device ---> {device} and Current Device --> {torch.cuda.current_dev
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=11)
 val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 
-model = Modelo(num_classes, learning_rate)
+model = ModeloCustom(num_classes, learning_rate)
+# model = Modelo(num_classes, learning_rate)
 
 csv_logger = CSVLogger(
     save_dir='./lightning_logs/',

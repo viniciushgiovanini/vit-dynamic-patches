@@ -4,6 +4,9 @@ from transformers import ViTModel, ViTConfig, ViTForImageClassification
 import pytorch_lightning as pl
 from classes.patch_visualizer import PatchVisualizer
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -85,7 +88,29 @@ class RandomPatchEmbedding(nn.Module):
         
         patches = torch.stack(patches, dim=1)  # (batch_size, num_patches, embed_dim)
         
+        if False:
+            for i in range(batch_size):
+                self.visualize_patches(x[i].cpu().numpy(), random_h_indices[i].cpu().numpy(), random_w_indices[i].cpu().numpy(), f"figs/patch_image_{i}.jpg")
+        
+        
+        
         return patches
+      
+    def visualize_patches(self, image, h_indices, w_indices, save_path):
+        fig, ax = plt.subplots(1)
+        ax.imshow(image.transpose(1, 2, 0))  # Transpor a imagem para (height, width, channels)
+
+        for h_idx, w_idx in zip(h_indices, w_indices):
+            rect = patches.Rectangle(
+                (w_idx * self.patch_size[1], h_idx * self.patch_size[0]), 
+                self.patch_size[1], self.patch_size[0],
+                linewidth=1, edgecolor='r', facecolor='none'
+            )
+            ax.add_patch(rect)
+
+        plt.axis('off')
+        plt.savefig(save_path, bbox_inches='tight', pad_inches=0)
+        plt.close()
 
 
 class ModeloCustom(pl.LightningModule):

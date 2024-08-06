@@ -7,35 +7,9 @@ from classes.patch_visualizer import PatchVisualizer
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
+import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# class ViTPatchEmbeddingsCustom(nn.Module):
-#     def __init__(self, input_size, patch_size, embed_dim):
-#         super(ViTPatchEmbeddingsCustom, self).__init__()
-#         self.patch_size = patch_size
-#         self.embed_dim = embed_dim
-
-#         # Projeção dos patches
-#         self.projection = nn.Conv2d(
-#             in_channels=input_size[0],  # Número de canais da imagem
-#             out_channels=embed_dim,      # Dimensão do embedding
-#             kernel_size=patch_size,      # Tamanho do patch
-#             stride=patch_size            # Deslocamento da janela
-#         )
-    
-#     def forward(self, x, **kwargs):
-#       # Passar pela camada de projeção
-#       x = self.projection(x)  # (batch_size, embed_dim, num_patches_h, num_patches_w)
-      
-#       # Obter a forma de saída
-#       batch_size, embed_dim, num_patches_h, num_patches_w = x.size()
-      
-#       # Reformatar para (batch_size, num_patches, embed_dim)
-#       x = x.flatten(2).transpose(1, 2)  # (batch_size, num_patches, embed_dim)
-      
-#       return x
-
 
 class RandomPatchEmbedding(nn.Module):
     def __init__(self, input_size, patch_size, embed_dim, num_patches):
@@ -44,9 +18,32 @@ class RandomPatchEmbedding(nn.Module):
         self.embed_dim = embed_dim
         self.num_patches = num_patches
         
-        
-        # Camada de projeção dos patches
         self.projection = nn.Linear(patch_size[0] * patch_size[1] * input_size[0], embed_dim)
+        self.visualizer = PatchVisualizer(patch_size)
+    
+    def generate_random_patch_centers(self, image_height, image_width, patch_size, num_patches):
+      patch_height, patch_width = patch_size
+      
+      centers = []
+      for _ in range(num_patches):
+          h = random.uniform(patch_height / 2, image_height - patch_height / 2)
+          w = random.uniform(patch_width / 2, image_width - patch_width / 2)
+          centers.append((h, w))
+
+      return centers
+    
+    def generate_patch_centers(self, image_height, image_width, patch_size):
+      patch_height, patch_width = patch_size
+      
+      num_patches_h = image_height // patch_height
+      num_patches_w = image_width // patch_width
+      
+      centers_h = [(i * patch_height + patch_height // 2) for i in range(num_patches_h)]
+      centers_w = [(j * patch_width + patch_width // 2) for j in range(num_patches_w)]
+      
+      centers = [(h, w) for h in centers_h for w in centers_w]
+      
+      return centers
     
     def forward(self, x, **kwargs):
         """
@@ -58,61 +55,47 @@ class RandomPatchEmbedding(nn.Module):
         """
         batch_size, channels, height, width = x.size()
         
-        # Calcular o número total de patches possíveis
-        num_patches_h = height // self.patch_size[0]
-        num_patches_w = width // self.patch_size[1]
-        
-        # Gerar posições aleatórias para os patches
-        random_h_indices = torch.randint(0, num_patches_h, (batch_size, self.num_patches), device=x.device)
-        random_w_indices = torch.randint(0, num_patches_w, (batch_size, self.num_patches), device=x.device)
-        
-        patches = []
-        for i in range(self.num_patches):
-            h_idx = random_h_indices[:, i]
-            w_idx = random_w_indices[:, i]
+        all_patches = []
+        all_h_indices = []
+        all_w_indices = []
+
+        for b in range(batch_size):
+          
+            centers = self.generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
+            # centers = self.generate_patch_centers(height, width, self.patch_size)
             
-            # Convertendo índices para inteiros para indexação
-            h_start = h_idx.unsqueeze(1) * self.patch_size[0]
-            w_start = w_idx.unsqueeze(1) * self.patch_size[1]
+            h_indices = [int(h) for h, _ in centers]
+            w_indices = [int(w) for _, w in centers]
             
-            # Extração de patches com sobreposição
-            patch = torch.stack([
-                x[b, :, h_start[b].item():h_start[b].item() + self.patch_size[0],
-                w_start[b].item():w_start[b].item() + self.patch_size[1]]
-                for b in range(batch_size)
-            ])
+            patches = []
+
+            for (h_idx, w_idx) in zip(h_indices, w_indices):
+                if (0 <= h_idx < height and 0 <= w_idx < width and
+                    h_idx + self.patch_size[0] <= height and
+                    w_idx + self.patch_size[1] <= width):
+                    
+                    patch = x[b, :, h_idx:h_idx + self.patch_size[0], w_idx:w_idx + self.patch_size[1]]
+                    patches.append(patch.to(device))
             
-            patch = patch.flatten(start_dim=1)  # Flatten para (batch_size, num_patches, patch_size * patch_size * channels)
-            patch = self.projection(patch)      # Projeção para (batch_size, num_patches, embed_dim)
-            patches.append(patch)
+            if len(patches) < self.num_patches:
+                missing_patches = self.num_patches - len(patches)
+                patches += [torch.zeros(channels, self.patch_size[0], self.patch_size[1], device=device)] * missing_patches
+
+            patches = torch.stack(patches)  
+            patches = patches.flatten(start_dim=1)
+            patches = self.projection(patches)    
+            
+            all_patches.append(patches)
+            all_h_indices.append(h_indices)
+            all_w_indices.append(w_indices)
         
-        patches = torch.stack(patches, dim=1)  # (batch_size, num_patches, embed_dim)
+        all_patches = torch.stack(all_patches).to(device) 
         
-        if False:
-            for i in range(batch_size):
-                self.visualize_patches(x[i].cpu().numpy(), random_h_indices[i].cpu().numpy(), random_w_indices[i].cpu().numpy(), f"figs/patch_image_{i}.jpg")
+        self.visualizer.visualize_patches(x[0].cpu(), all_h_indices[0], all_w_indices[0])
         
-        
-        
-        return patches
+        return all_patches
+           
       
-    def visualize_patches(self, image, h_indices, w_indices, save_path):
-        fig, ax = plt.subplots(1)
-        ax.imshow(image.transpose(1, 2, 0))  # Transpor a imagem para (height, width, channels)
-
-        for h_idx, w_idx in zip(h_indices, w_indices):
-            rect = patches.Rectangle(
-                (w_idx * self.patch_size[1], h_idx * self.patch_size[0]), 
-                self.patch_size[1], self.patch_size[0],
-                linewidth=1, edgecolor='r', facecolor='none'
-            )
-            ax.add_patch(rect)
-
-        plt.axis('off')
-        plt.savefig(save_path, bbox_inches='tight', pad_inches=0)
-        plt.close()
-
-
 class ModeloCustom(pl.LightningModule):
     def __init__(self, num_class, learning_rate):
         super(ModeloCustom, self).__init__()

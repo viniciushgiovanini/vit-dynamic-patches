@@ -167,3 +167,4 @@ models/
 lightning_logs/
 resultados/*
 .vscode/
+figs/

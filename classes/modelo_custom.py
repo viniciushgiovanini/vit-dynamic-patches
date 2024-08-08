@@ -1,12 +1,8 @@
 import torch
 import torch.nn as nn
-from transformers import ViTModel, ViTConfig, ViTForImageClassification
+from transformers import ViTForImageClassification
 import pytorch_lightning as pl
 from classes.patch_visualizer import PatchVisualizer
-
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import numpy as np
 import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,18 +28,33 @@ class RandomPatchEmbedding(nn.Module):
 
       return centers
     
-    def generate_patch_centers(self, image_height, image_width, patch_size):
-      patch_height, patch_width = patch_size
-      
-      num_patches_h = image_height // patch_height
-      num_patches_w = image_width // patch_width
-      
-      centers_h = [(i * patch_height + patch_height // 2) for i in range(num_patches_h)]
-      centers_w = [(j * patch_width + patch_width // 2) for j in range(num_patches_w)]
-      
-      centers = [(h, w) for h in centers_h for w in centers_w]
-      
-      return centers
+    def generate_patch_centers(image_height, image_width, patch_size):
+        # Stride é o espacamento entre os patches que é o próprio patch_size
+        stride = patch_size  
+        
+        # Qtd de patches na height e no widget (SEM SOBREPOSICAO)
+        num_patches_h = image_height // stride
+        num_patches_w = image_width // stride
+        
+        centers_h = []
+        centers_w = []
+        
+        # Todos os patches da coluna
+        for i in range(num_patches_h):
+          centers_h.append((i * stride + stride // 2))
+        
+        # Todos os patches da largura
+        for j in range(num_patches_w):
+          centers_w.append((j * stride + stride // 2))
+        
+        centers = []
+        # Calculando a combinação das posicoes dos patches (X,Y)
+        for h in centers_h:
+          for w in centers_w:
+            centers.append((h,w))
+        
+        # Retornar os pixels centrais
+        return centers
     
     def forward(self, x, **kwargs):
         """

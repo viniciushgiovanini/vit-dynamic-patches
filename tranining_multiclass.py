@@ -11,9 +11,8 @@ import pandas as pd
 import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger, TensorBoardLogger
-from torchvision.datasets import ImageFolder
 from lightning.pytorch.accelerators import find_usable_cuda_devices
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
 from classes.modelo_custom import ModeloCustom
 from classes.modelo import Modelo
 
@@ -32,70 +31,93 @@ print('Active CUDA Device: GPU', torch.cuda.current_device())
 print ('Available devices ', torch.cuda.device_count())
 print ('Current cuda device ', torch.cuda.current_device())
 
+
+#########################
+#      HYPERPARAMS
+#########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 10
+num_epochs = 100
 learning_rate = 0.001
+total_steps = 50
 # learning_rate = 0.00001
 
+# Dataset path
 train_data_path = './data/base_treinamento/train/'
 test_data_path = './data/base_treinamento/test/'
 
-dataset = ImageFolder(root=train_data_path)
-
-class_to_idx = dataset.class_to_idx
-
-
-print("Class to Index Mapping:")
-print(class_to_idx)
-
+# Transformando a imagem
 transform = T.Compose([
     T.Resize((224, 224)),
     T.ToTensor(),
     T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
+# Cria o path para os logs do lightning
 if os.path.exists("./lightning_logs/"):
   shutil.rmtree("./lightning_logs/")
 
-train_dataset = torchvision.datasets.ImageFolder(root=train_data_path, transform=transform)
-test_dataset = torchvision.datasets.ImageFolder(root=test_data_path, transform=transform)
+##########################
+# Carregando Dados
+##########################
+train_dataset = ImageFolder(root=train_data_path, transform=transform)
+test_dataset = ImageFolder(root=test_data_path, transform=transform)
 
+#########################
+# Lendo Classes
+#########################
+class_to_idx = train_dataset.class_to_idx
+print("Class to Index Mapping:")
+print(class_to_idx)
 num_classes = len(train_dataset.classes)
-
 print(f"Numero de classes {num_classes}")
 
+# Seleciona as steps automaticamente
 # total_steps = len(train_dataset) // batch_size
-total_steps = 50
 
+# Seleciona o Dispositivo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"\n\n Device ---> {device} and Current Device --> {torch.cuda.current_device()}\n\n")
 
+# Divisão do dataset em Batch, colocando shuffle, acelera o carregando dos dados com num_workers
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=11)
 val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 
-model = ModeloCustom(num_classes, learning_rate)
-# model = Modelo(num_classes, learning_rate)
+# Instancia o Modelo criado
+# model = ModeloCustom(num_classes, learning_rate)
+model = Modelo(num_classes, learning_rate)
 
+###########################
+# Cria Logger para Metricas
+###########################
 csv_logger = CSVLogger(
     save_dir='./lightning_logs/',
     name='csv_file'
 )
 
+###########################
+# Checkpoint Model
+###########################
 checkpoint_callback = ModelCheckpoint(
     monitor='val_loss',
     dirpath='models/checkpoint/',
-    filename='best-checkpoint',
+    filename='{epoch}-{val_loss:.2f}-{val_accuracy:.2f}',
     save_top_k=1,
     mode='min'
 )
 
-trainer = pl.Trainer(max_epochs=num_epochs,  limit_train_batches= total_steps,limit_val_batches=total_steps, log_every_n_steps=1, logger=[csv_logger, TensorBoardLogger("./lightning_logs/")], accelerator="gpu", devices="auto", callbacks=[checkpoint_callback])
-
+#############################
+# Criar o Trainer e faz o FIT
+#############################
+trainer = pl.Trainer(max_epochs=num_epochs,  limit_train_batches= total_steps,limit_val_batches=total_steps, log_every_n_steps=1, logger=[csv_logger, TensorBoardLogger("./lightning_logs/")], accelerator="gpu", devices="auto", callbacks=[checkpoint_callback, ModelSummary(max_depth=10)])
 trainer.fit(model, train_loader, val_loader)
 
+# salva modelo Treinado
 torch.save(model.state_dict(), './models/modelo_vit_gpu.pth')
 
+#############################################################################
+#               Realiza criação do gráfico de loss e acuracia
+#############################################################################
 df = pd.read_csv('./lightning_logs/csv_file/version_0/metrics.csv')
 
 print("\n\n  %s minutos" % ((time.time() - start_time) / 60 ))
@@ -152,14 +174,18 @@ plt.legend()
 plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 
 
+#############################################################################
+#          Calcula e Compara a acuracia do Modelo e da Callback
+#############################################################################
+
 def calcular_acuracia(model, dataloader):
-    model.to(device)  # Mover o modelo para o dispositivo correto
+    model.to(device) 
     model.eval()
     correct = 0
     total = 0
     with torch.no_grad():
         for images, labels in dataloader:
-            images, labels = images.to(device), labels.to(device)  # Mover dados para o dispositivo correto
+            images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)

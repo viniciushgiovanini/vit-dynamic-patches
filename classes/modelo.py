@@ -17,8 +17,7 @@ class Modelo(pl.LightningModule):
         self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224', num_labels=self.num_class, ignore_mismatched_sizes=True)
         # self.model = ViTForImageClassification.from_pretrained('amunchet/rorshark-vit-base', num_labels=self.num_class, ignore_mismatched_sizes=True)
         # self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch32-224-in21k', num_labels=self.num_class, ignore_mismatched_sizes=True)
-        # Precisa testar o de baixo
-        # self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-384', num_labels=self.num_class, ignore_mismatched_sizes=True)
+        # self.model = ViTForImageClassification.from_pretrained('google/vit-large-patch16-224', num_labels=self.num_class, ignore_mismatched_sizes=True)
         print(self.model)
         self.model.to(device)
         print("----------------------------------------------------------------")
@@ -28,18 +27,18 @@ class Modelo(pl.LightningModule):
         for param in self.model.classifier.parameters():
             param.requires_grad = True
             
-        self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(128, self.num_class)
-        )
+        # self.model.classifier = nn.Sequential(
+        #     nn.Linear(self.model.config.hidden_size, 512),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.3),
+        #     nn.Linear(512, 256),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.3),
+        #     nn.Linear(256, 128),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.3),
+        #     nn.Linear(128, self.num_class)
+        # )
 
         self.criterion = nn.CrossEntropyLoss()
         print(self.model)

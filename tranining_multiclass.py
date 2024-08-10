@@ -56,6 +56,12 @@ transform = T.Compose([
 # Cria o path para os logs do lightning
 if os.path.exists("./lightning_logs/"):
   shutil.rmtree("./lightning_logs/")
+if os.path.exists("./models/"):
+  shutil.rmtree("./models/")
+  os.mkdir("./models/") 
+if not os.path.exists("./models/"):
+  os.mkdir("./models/") 
+  
 
 ##########################
 # Carregando Dados

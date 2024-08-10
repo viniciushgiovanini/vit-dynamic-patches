@@ -9,6 +9,9 @@ class Modelo(pl.LightningModule):
     def __init__(self, num_class, learning_rate):
         super(Modelo, self).__init__()
         
+        # Salvar os hyperparametros
+        self.save_hyperparameters()
+        
         
         self.num_class = num_class
         self.learning_rate = learning_rate

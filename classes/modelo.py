@@ -21,9 +21,12 @@ class Modelo(pl.LightningModule):
         print(self.model)
         self.model.to(device)
         print("----------------------------------------------------------------")
+        
+        # Congela todos os parametros
         for param in self.model.parameters():
             param.requires_grad = False
-            
+        
+        # Descongela somente o de classificação 
         for param in self.model.classifier.parameters():
             param.requires_grad = True
             
@@ -39,30 +42,47 @@ class Modelo(pl.LightningModule):
         #     nn.Dropout(0.3),
         #     nn.Linear(128, self.num_class)
         # )
-
+        
+        # Criterio de Perda é o CrossEntropyLoss
         self.criterion = nn.CrossEntropyLoss()
         print(self.model)
         print("----------------------------------------------------------------")
-        # for name, module in self.model.named_modules():
-        #   print(f"{name}: {module}")
-   
+
+    # Passagem para frente (Backpropagation) retorna os valores finais do modelo não normalizados
+    # Retorna os logits para passar na funcao softmax
     def forward(self, x):
         logits = self.model(x).logits
         return logits
 
-    def training_step(self, batch, batch_idx):
+    # Passo a passo do treinamento
+    # Batch -> Lote de img (32 img por batch)
+    def training_step(self, batch):
+
+        # Passa as img para os dispositivos GPU/CPU
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
+        
+        # Obte os logits passando as imagens através do foward 
         logits = self(images)
+        
+        # Calcula a perda
         loss = self.criterion(logits, labels)
+        
+        # Retorna a previsão do modelo
         _, predicted = torch.max(logits, 1)
+        
+        # Realiza o calcula da acuracia
         accuracy = (predicted == labels).float().mean()
         
+        # Realiza o registro das maetricas com CSVLogger
         self.log('train_loss', loss, prog_bar=True)
         self.log('train_accuracy', accuracy, prog_bar=True)
+        
+        # Retorna o valor do loss
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    # Faz a mesma coisa do training_step só que na etapa de validação
+    def validation_step(self, batch):
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
         logits = self(images)
@@ -72,6 +92,7 @@ class Modelo(pl.LightningModule):
         self.log('val_loss', loss, prog_bar=True)
         self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
 
+    # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

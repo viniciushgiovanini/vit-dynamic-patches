@@ -3,58 +3,22 @@ import torch.nn as nn
 from transformers import ViTForImageClassification
 import pytorch_lightning as pl
 from classes.patch_visualizer import PatchVisualizer
-import random
+from classes.dynamic_patches import DynamicPatches
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class RandomPatchEmbedding(nn.Module):
-    def __init__(self, input_size, patch_size, embed_dim, num_patches):
-        super(RandomPatchEmbedding, self).__init__()
+class CustomPatchEmbedding(nn.Module):
+    def __init__(self, input_size, patch_size, embed_dim, num_patches, is_visualizer):
+        super(CustomPatchEmbedding, self).__init__()
         self.patch_size = patch_size
         self.embed_dim = embed_dim
         self.num_patches = num_patches
+        self.is_visualizer = is_visualizer
         
         self.projection = nn.Linear(patch_size[0] * patch_size[1] * input_size[0], embed_dim)
         self.visualizer = PatchVisualizer(patch_size)
     
-    def generate_random_patch_centers(self, image_height, image_width, patch_size, num_patches):
-      patch_height, patch_width = patch_size
-      
-      centers = []
-      for _ in range(num_patches):
-          h = random.uniform(patch_height / 2, image_height - patch_height / 2)
-          w = random.uniform(patch_width / 2, image_width - patch_width / 2)
-          centers.append((h, w))
-
-      return centers
-    
-    def generate_patch_centers(image_height, image_width, patch_size):
-        # Stride é o espacamento entre os patches que é o próprio patch_size
-        stride = patch_size  
-        
-        # Qtd de patches na height e no widget (SEM SOBREPOSICAO)
-        num_patches_h = image_height // stride
-        num_patches_w = image_width // stride
-        
-        centers_h = []
-        centers_w = []
-        
-        # Todos os patches da coluna
-        for i in range(num_patches_h):
-          centers_h.append((i * stride + stride // 2))
-        
-        # Todos os patches da largura
-        for j in range(num_patches_w):
-          centers_w.append((j * stride + stride // 2))
-        
-        centers = []
-        # Calculando a combinação das posicoes dos patches (X,Y)
-        for h in centers_h:
-          for w in centers_w:
-            centers.append((h,w))
-        
-        # Retornar os pixels centrais
-        return centers
     
     def forward(self, x, **kwargs):
         """
@@ -72,7 +36,7 @@ class RandomPatchEmbedding(nn.Module):
 
         for b in range(batch_size):
           
-            centers = self.generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
+            centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
             # centers = self.generate_patch_centers(height, width, self.patch_size)
             
             h_indices = [int(h) for h, _ in centers]
@@ -102,7 +66,9 @@ class RandomPatchEmbedding(nn.Module):
         
         all_patches = torch.stack(all_patches).to(device) 
         
-        self.visualizer.visualize_patches(x[0].cpu(), all_h_indices[0], all_w_indices[0])
+        if self.is_visualizer:
+          for x, h, w in zip(x, all_h_indices, all_w_indices):
+            self.visualizer.visualize_patches(x.cpu(), h, w)
         
         return all_patches
            
@@ -122,11 +88,12 @@ class ModeloCustom(pl.LightningModule):
         # Precisa testar o de baixo
         # self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-384', num_labels=self.num_class, ignore_mismatched_sizes=True)
         
-        self.model.vit.embeddings.patch_embeddings = RandomPatchEmbedding(
+        self.model.vit.embeddings.patch_embeddings = CustomPatchEmbedding(
             input_size=(3, 224, 224),  # Ajustar o tamanho da imagem de entrada
             patch_size=(16, 16),       # Tamanho do patch
             embed_dim=self.model.config.hidden_size,
-            num_patches=196
+            num_patches=196,
+            is_visualizer=False,
         )
         # self.model.vit.embeddings.patch_embeddings = ViTPatchEmbeddingsCustom(
         #     input_size=(3, 224, 224),  # Ajustar o tamanho da imagem de entrada

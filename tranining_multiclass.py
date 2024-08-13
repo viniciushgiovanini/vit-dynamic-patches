@@ -1,5 +1,5 @@
 import torch
-import torchvision.transforms as T
+from torchvision.transforms import v2
 import torchvision
 import matplotlib.pyplot as plt
 from torchvision.datasets import ImageFolder
@@ -46,11 +46,20 @@ total_steps = 50
 train_data_path = './data/base_treinamento/train/'
 test_data_path = './data/base_treinamento/test/'
 
-# Transformando a imagem
-transform = T.Compose([
-    T.Resize((224, 224)),
-    T.ToTensor(),
-    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+# Transformando a imagem training
+transform_train = v2.Compose([
+    v2.Resize((224, 224)),
+    v2.RandomRotation(360),
+    v2.RandomHorizontalFlip(p=0.5),
+    v2.ToTensor(),
+    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+# Transformando a imagem test
+transform_test = v2.Compose([
+    v2.Resize((224, 224)),
+    v2.ToTensor(),
+    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
 # Cria o path para os logs do lightning
@@ -66,8 +75,8 @@ if not os.path.exists("./models/"):
 ##########################
 # Carregando Dados
 ##########################
-train_dataset = ImageFolder(root=train_data_path, transform=transform)
-test_dataset = ImageFolder(root=test_data_path, transform=transform)
+train_dataset = ImageFolder(root=train_data_path, transform=transform_test)
+test_dataset = ImageFolder(root=test_data_path, transform=transform_test)
 
 #########################
 # Lendo Classes
@@ -90,8 +99,8 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, nu
 val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 
 # Instancia o Modelo criado
-# model = ModeloCustom(num_classes, learning_rate)
-model = Modelo(num_classes, learning_rate)
+model = ModeloCustom(num_classes, learning_rate)
+# model = Modelo(num_classes, learning_rate)
 
 ###########################
 # Cria Logger para Metricas

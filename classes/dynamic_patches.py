@@ -15,8 +15,8 @@ class DynamicPatches:
     
     
     
-  def generate_patch_centers(image_height, image_width, patch_size):
-        stride = patch_size  
+  def generate_patch_centers(self, image_height, image_width, patch_size):
+        stride = patch_size[0]  
         
         num_patches_h = image_height // stride
         num_patches_w = image_width // stride

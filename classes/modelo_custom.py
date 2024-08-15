@@ -39,8 +39,8 @@ class CustomPatchEmbedding(nn.Module):
         for b in range(batch_size):
 
             # Seleciona os centros de acordo com o metodo escolhido
-            centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
-            # centers = self.generate_patch_centers(height, width, self.patch_size)
+            # centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
+            centers = DynamicPatches().generate_patch_centers(height, width, self.patch_size)
             
             # converter as cordernadas do centers em indices inteiros  
             h_indices = [int(h) for h, _ in centers]
@@ -50,17 +50,34 @@ class CustomPatchEmbedding(nn.Module):
 
             # Para cada par ded indices h,w
             for (h_idx, w_idx) in zip(h_indices, w_indices):
-                # verifica se esta dentro do limite da imagem
-                if (0 <= h_idx < height and 0 <= w_idx < width and
-                    h_idx + self.patch_size[0] <= height and
-                    w_idx + self.patch_size[1] <= width):
+              
+                # Calcular as coordenadas de início do patch
+                start_h = h_idx - self.patch_size[0] // 2
+                start_w = w_idx - self.patch_size[1] // 2
+                
+                
+                # Calcular as coordenadas de fim do patch
+                end_h = start_h + self.patch_size[0]
+                end_w = start_w + self.patch_size[1]
+              
+                # Verificar se o patch está dentro dos limites da imagem
+                if (0 <= start_h and start_h + self.patch_size[0] <= height and
+                    0 <= start_w and start_w + self.patch_size[1] <= width):
                     
-                    # O patch é extraido e convertdo para o device
-                    patch = x[b, :, h_idx:h_idx + self.patch_size[0], w_idx:w_idx + self.patch_size[1]]
+                    # Extrair o patch
+                    patch = x[b, :, start_h:end_h, start_w:end_w]
                     patches.append(patch.to(device))
+                else:
+                    print(f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}")
             
             # se o numero patches for menor que o ncessário, prenche com tesnores vazios
+            
+            print(len(patches))
+            print(self.num_patches)
+            
+            
             if len(patches) < self.num_patches:
+                print("AAAAAAAAAAAAAAAAAAAAA\n\n\n\n\n\n\n\n\n")
                 missing_patches = self.num_patches - len(patches)
                 patches += [torch.zeros(channels, self.patch_size[0], self.patch_size[1], device=device)] * missing_patches
 
@@ -76,6 +93,9 @@ class CustomPatchEmbedding(nn.Module):
             all_patches.append(patches)
             all_h_indices.append(h_indices)
             all_w_indices.append(w_indices)
+        
+        # self.visualizer.save_patches_to_file(all_patches=all_patches, output_dir='/figs/batch_0/', batch_idx=0)
+        
         # combina todos os patches de todas as imagens no batch em um uico tensor tridimensional (batch_size, num_patches, embed_dim)
         all_patches = torch.stack(all_patches).to(device) 
         

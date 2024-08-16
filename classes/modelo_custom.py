@@ -4,7 +4,7 @@ from transformers import ViTForImageClassification, ViTModel
 import pytorch_lightning as pl
 from classes.patch_visualizer import PatchVisualizer
 from classes.dynamic_patches import DynamicPatches
-
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -70,14 +70,14 @@ class CustomPatchEmbedding(nn.Module):
                 else:
                     print(f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}")
             
+            ##################################
+            # Visualização do Patch Tensor
+            ##################################
+            self.visualizer.visualize_patches_with_tensor(patches)
+            
             # se o numero patches for menor que o ncessário, prenche com tesnores vazios
-            
-            print(len(patches))
-            print(self.num_patches)
-            
-            
             if len(patches) < self.num_patches:
-                print("AAAAAAAAAAAAAAAAAAAAA\n\n\n\n\n\n\n\n\n")
+                # print("AAAAAAAAAAAAAAAAAAAAA\n\n\n\n\n\n\n\n\n")
                 missing_patches = self.num_patches - len(patches)
                 patches += [torch.zeros(channels, self.patch_size[0], self.patch_size[1], device=device)] * missing_patches
 
@@ -101,13 +101,13 @@ class CustomPatchEmbedding(nn.Module):
         
         if self.is_visualizer:
           for x, h, w in zip(x, all_h_indices, all_w_indices):
-            self.visualizer.visualize_patches(x.cpu(), h, w)
+            self.visualizer.visualize_patches_with_px(x.cpu(), h, w)
         
         return all_patches
            
       
 class ModeloCustom(pl.LightningModule):
-    def __init__(self, num_class, learning_rate):
+    def __init__(self, num_class, learning_rate, num_patch, input_size, patch_size):
         super(ModeloCustom, self).__init__()
         
         
@@ -118,16 +118,17 @@ class ModeloCustom(pl.LightningModule):
         base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
         # base_model = ViTModel.from_pretrained('amunchet/rorshark-vit-base')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
+        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-384')
         # self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-384', num_labels=self.num_class, ignore_mismatched_sizes=True)
         
         self.model = ViTForImageClassification(config=base_model.config)
         self.model.vit = base_model
         
         self.model.vit.embeddings.patch_embeddings = CustomPatchEmbedding(
-            input_size=(3, 224, 224),  # Ajustar o tamanho da imagem de entrada
-            patch_size=(16, 16),       # Tamanho do patch
+            input_size=(3, input_size, input_size),  # Ajustar o tamanho da imagem de entrada
+            patch_size=patch_size,       # Tamanho do patch
             embed_dim=self.model.config.hidden_size,
-            num_patches=196,
+            num_patches=num_patch,
             is_visualizer=False,
         )
               

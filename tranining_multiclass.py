@@ -40,6 +40,8 @@ batch_size = 32
 num_epochs = 10
 learning_rate = 0.001
 total_steps = 50
+img_size = (224, 224)
+patch_size = (16,16)
 # learning_rate = 0.00001
 
 # Dataset path
@@ -48,7 +50,7 @@ test_data_path = './data/base_treinamento/test/'
 
 # Transformando a imagem training
 transform_train = v2.Compose([
-    v2.Resize((224, 224)),
+    v2.Resize(img_size),
     v2.RandomRotation(360),
     v2.RandomHorizontalFlip(p=0.5),
     v2.ToTensor(),
@@ -57,7 +59,7 @@ transform_train = v2.Compose([
 
 # Transformando a imagem test
 transform_test = v2.Compose([
-    v2.Resize((224, 224)),
+    v2.Resize(img_size),
     v2.ToTensor(),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
@@ -99,7 +101,13 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, nu
 val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 
 # Instancia o Modelo criado
-model = ModeloCustom(num_classes, learning_rate)
+
+
+
+num_patch = ((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0]))
+print(f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")
+
+model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
 # model = Modelo(num_classes, learning_rate)
 
 ###########################

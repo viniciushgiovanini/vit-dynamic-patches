@@ -37,9 +37,9 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 50
+num_epochs = 15
 learning_rate = 0.001
-total_steps = 100
+# total_steps = 100
 img_size = (224, 224)
 patch_size = (16,16)
 # learning_rate = 0.00001
@@ -49,18 +49,18 @@ train_data_path = './data/base_treinamento/train/'
 test_data_path = './data/base_treinamento/test/'
 
 # Transformando a imagem training
-transform_train = v2.Compose([
-    v2.Resize(img_size),
-    v2.RandomRotation(360),
-    v2.RandomHorizontalFlip(p=0.5),
-    v2.RandomVerticalFlip(p=0.5),
-    v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
-    v2.ToTensor(),
-    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+# transform_train = v2.Compose([
+#     v2.Resize(img_size),
+#     v2.RandomRotation(360),
+#     v2.RandomHorizontalFlip(p=0.5),
+#     v2.RandomVerticalFlip(p=0.5),
+#     v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
+#     v2.ToTensor(),
+#     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+# ])
 
 # Transformando a imagem test
-transform_test = v2.Compose([
+transform = v2.Compose([
     v2.Resize(img_size),
     v2.ToTensor(),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -79,8 +79,8 @@ if not os.path.exists("./models/"):
 ##########################
 # Carregando Dados
 ##########################
-train_dataset = ImageFolder(root=train_data_path, transform=transform_train)
-test_dataset = ImageFolder(root=test_data_path, transform=transform_test)
+train_dataset = ImageFolder(root=train_data_path, transform=transform)
+test_dataset = ImageFolder(root=test_data_path, transform=transform)
 
 #########################
 # Lendo Classes
@@ -92,7 +92,7 @@ num_classes = len(train_dataset.classes)
 print(f"Numero de classes {num_classes}")
 
 # Seleciona as steps automaticamente
-# total_steps = len(train_dataset) // batch_size
+total_steps = len(train_dataset) // batch_size
 
 # Seleciona o Dispositivo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

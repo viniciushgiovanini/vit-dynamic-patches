@@ -35,7 +35,17 @@ class Modelo(pl.LightningModule):
         # Descongela somente o de classificação 
         for param in self.model.classifier.parameters():
             param.requires_grad = True
-            
+        
+        # Descongela o MLP
+        cont  = 0
+        for name, param in self.model.named_parameters():
+          # if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
+          if 'encoder.layer' in name and ('output.dense' in name):
+            if cont < 12:
+              param.requires_grad = True
+              cont += 1
+              
+        print("Quantidade de Camadas do MLP: " + str(cont))
         self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         # self.model.classifier = nn.Sequential(
         #     nn.Linear(self.model.config.hidden_size, 512),
@@ -101,5 +111,5 @@ class Modelo(pl.LightningModule):
 
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=0.001)
         return optimizer

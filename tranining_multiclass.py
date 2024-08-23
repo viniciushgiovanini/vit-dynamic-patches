@@ -37,12 +37,11 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 15
-learning_rate = 0.001
-# total_steps = 100
+num_epochs = 20
+learning_rate = 0.0001
+total_steps = 100
 img_size = (224, 224)
 patch_size = (16,16)
-# learning_rate = 0.00001
 
 # Dataset path
 train_data_path = './data/base_treinamento/train/'
@@ -92,7 +91,7 @@ num_classes = len(train_dataset.classes)
 print(f"Numero de classes {num_classes}")
 
 # Seleciona as steps automaticamente
-total_steps = len(train_dataset) // batch_size
+# total_steps = len(train_dataset) // batch_size
 
 # Seleciona o Dispositivo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

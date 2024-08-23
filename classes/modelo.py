@@ -18,6 +18,8 @@ class Modelo(pl.LightningModule):
       
         # Carregar um modelo pré-treinado
         base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
+        # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
         # base_model = ViTModel.from_pretrained('amunchet/rorshark-vit-base')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
         # self.model = ViTForImageClassification.from_pretrained('google/vit-large-patch16-224', num_labels=self.num_class, ignore_mismatched_sizes=True)
@@ -37,29 +39,27 @@ class Modelo(pl.LightningModule):
             param.requires_grad = True
         
         # Descongela o MLP
-        cont  = 0
-        for name, param in self.model.named_parameters():
-          # if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
-          if 'encoder.layer' in name and ('output.dense' in name):
-            if cont < 12:
-              param.requires_grad = True
-              cont += 1
-              
-        print("Quantidade de Camadas do MLP: " + str(cont))
-        self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
-        # self.model.classifier = nn.Sequential(
-        #     nn.Linear(self.model.config.hidden_size, 512),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(512, 256),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(256, 128),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(128, self.num_class)
-        # )
-        
+        # cont  = 0
+        # for name, param in self.model.named_parameters():
+        #   # if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
+        #   if 'encoder.layer' in name and ('output.dense' in name):
+        #     if cont < 12:
+        #       param.requires_grad = True
+        #       cont += 1
+        # print("Quantidade de Camadas do MLP: " + str(cont))
+        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
+        self.model.classifier = nn.Sequential(
+            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(self.model.config.hidden_size, self.num_class)
+        )
         # Criterio de Perda é o CrossEntropyLoss
         self.criterion = nn.CrossEntropyLoss()
         print(self.model)

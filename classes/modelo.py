@@ -17,8 +17,8 @@ class Modelo(pl.LightningModule):
         self.learning_rate = learning_rate
       
         # Carregar um modelo pré-treinado
-        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
+        base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
         # base_model = ViTModel.from_pretrained('amunchet/rorshark-vit-base')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
@@ -38,16 +38,17 @@ class Modelo(pl.LightningModule):
         for param in self.model.classifier.parameters():
             param.requires_grad = True
         
-        # # Descongela o MLP
+        # Descongela o MLP
         # cont  = 0
         # for name, param in self.model.named_parameters():
-        #   # if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
-        #   if 'encoder.layer' in name and ('output.dense' in name):
-        #     if cont < 12:
+        #   if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
+        #   # if 'encoder.layer' in name and ('output.dense' in name):
+        #     # if cont < 12:
         #       param.requires_grad = True
         #       cont += 1
         # print("Quantidade de Camadas do MLP: " + str(cont))
-        self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
+              
+        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         self.model.classifier = nn.Sequential(
             nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
             nn.ReLU(),
@@ -62,8 +63,8 @@ class Modelo(pl.LightningModule):
         )
         # Criterio de Perda é o CrossEntropyLoss
         self.criterion = nn.CrossEntropyLoss()
-        print(self.model)
         print("----------------------------------------------------------------")
+        print(self.model)
 
     # Passagem para frente (Backpropagation) retorna os valores finais do modelo não normalizados
     # Retorna os logits para passar na funcao softmax

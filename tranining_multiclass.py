@@ -15,6 +15,7 @@ from lightning.pytorch.accelerators import find_usable_cuda_devices
 from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
 from classes.modelo_custom import ModeloCustom
 from classes.modelo import Modelo
+from classes.modelo_binario import ModeloBin
 
 
 # Identificar GPUs disponíveis
@@ -109,7 +110,8 @@ num_patch = ((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0]))
 print(f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")
 
 # model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
-model = Modelo(num_classes, learning_rate)
+# model = Modelo(num_classes, learning_rate)
+model = ModeloBin(num_classes, learning_rate)
 
 ###########################
 # Cria Logger para Metricas

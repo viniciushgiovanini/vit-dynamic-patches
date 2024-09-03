@@ -17,8 +17,9 @@ class ModeloBin(pl.LightningModule):
         self.learning_rate = learning_rate
       
         # Carregar um modelo pré-treinado
-        base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
+        # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
+        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
         # base_model = ViTModel.from_pretrained('amunchet/rorshark-vit-base')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
@@ -50,16 +51,10 @@ class ModeloBin(pl.LightningModule):
               
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.Linear(self.model.config.hidden_size, 16),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(self.model.config.hidden_size, 1)
+            nn.Dropout(0.7), 
+            nn.Linear(16, 1)
         )
         # Criterio de Perda é o Bianry Cross Entropy
         self.criterion = nn.BCEWithLogitsLoss()

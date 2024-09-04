@@ -40,27 +40,23 @@ class ModeloBin(pl.LightningModule):
             param.requires_grad = True
         
         # Descongela o MLP
-        cont  = 0
-        for name, param in self.model.named_parameters():
-          if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
-          # if 'encoder.layer' in name and ('output.dense' in name):
-            if cont < 12:
-              param.requires_grad = True
-              cont += 1
-        print("Quantidade de Camadas do MLP: " + str(cont))
+        # cont  = 0
+        # for name, param in self.model.named_parameters():
+        #   if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
+        #   # if 'encoder.layer' in name and ('output.dense' in name):
+        #     if cont < 12:
+        #       param.requires_grad = True
+        #       cont += 1
+        # print("Quantidade de Camadas do MLP: " + str(cont))
               
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, 12),
+            nn.Linear(self.model.config.hidden_size, 32),
             nn.ReLU(),
-            nn.Dropout(0.8),
-            nn.Linear(12, 12),
-            nn.ReLU(),
-            nn.Dropout(0.8),
-            nn.Linear(12, 12),
-            nn.ReLU(),
-            nn.Dropout(0.8),
-            nn.Linear(12, 1)
+            nn.Dropout(0.7),
+            nn.Linear(32, 16),
+            nn.ReLU(),# Aumentar o dropout
+            nn.Linear(16, 1)
         )
         # Criterio de Perda é o Bianry Cross Entropy
         self.criterion = nn.BCEWithLogitsLoss()

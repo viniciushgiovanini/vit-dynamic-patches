@@ -38,7 +38,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 64
-num_epochs = 80
+num_epochs = 160
 learning_rate = 0.0001
 # total_steps = 100
 img_size = (224, 224)
@@ -62,6 +62,7 @@ test_data_path = './data/base_treinamento/test/'
 # Transformando a imagem test
 transform = v2.Compose([
     v2.Resize(img_size),
+    # v2.Grayscale(num_output_channels=1),
     v2.ToTensor(),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])

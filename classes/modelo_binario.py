@@ -50,12 +50,15 @@ class ModeloBin(pl.LightningModule):
         # print("Quantidade de Camadas do MLP: " + str(cont))
               
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
+        
+        
+        # TREINAR ESSE ASSIM COM 100 EPOCAS
+        
+        
         self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, 32),
+            nn.Linear(self.model.config.hidden_size, 16),
             nn.ReLU(),
-            nn.Dropout(0.7),
-            nn.Linear(32, 16),
-            nn.ReLU(),# Aumentar o dropout
+            nn.Dropout(0.7),  # Aumentar o dropout
             nn.Linear(16, 1)
         )
         # Criterio de Perda é o Bianry Cross Entropy

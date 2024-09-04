@@ -38,8 +38,8 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 64
-num_epochs = 160
-learning_rate = 0.0001
+num_epochs = 30
+learning_rate = 0.001
 # total_steps = 100
 img_size = (224, 224)
 patch_size = (16,16)

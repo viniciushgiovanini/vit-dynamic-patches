@@ -50,11 +50,7 @@ class ModeloBin(pl.LightningModule):
         # print("Quantidade de Camadas do MLP: " + str(cont))
               
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
-        
-        
-        # TREINAR ESSE ASSIM COM 100 EPOCAS
-        
-        
+
         self.model.classifier = nn.Sequential(
             nn.Linear(self.model.config.hidden_size, 16),
             nn.ReLU(),

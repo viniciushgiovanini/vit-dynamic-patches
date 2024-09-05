@@ -1,6 +1,5 @@
 import torch
 from torchvision.transforms import v2
-import torchvision
 import matplotlib.pyplot as plt
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
@@ -13,6 +12,9 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger, TensorBoardLogger
 from lightning.pytorch.accelerators import find_usable_cuda_devices
 from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import numpy as np
 from classes.modelo_custom import ModeloCustom
 from classes.modelo import Modelo
 from classes.modelo_binario import ModeloBin
@@ -38,8 +40,8 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 64
-num_epochs = 30
-learning_rate = 0.001
+num_epochs = 10
+learning_rate = 0.0001
 # total_steps = 100
 img_size = (224, 224)
 patch_size = (16,16)
@@ -48,21 +50,9 @@ patch_size = (16,16)
 train_data_path = './data/base_treinamento/train/'
 test_data_path = './data/base_treinamento/test/'
 
-# Transformando a imagem training
-# transform_train = v2.Compose([
-#     v2.Resize(img_size),
-#     v2.RandomRotation(360),
-#     v2.RandomHorizontalFlip(p=0.5),
-#     v2.RandomVerticalFlip(p=0.5),
-#     v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
-#     v2.ToTensor(),
-#     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-# ])
-
 # Transformando a imagem test
 transform = v2.Compose([
     v2.Resize(img_size),
-    # v2.Grayscale(num_output_channels=1),
     v2.ToTensor(),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
@@ -234,3 +224,42 @@ model.to(device)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
 accuracy = calcular_acuracia(model, test_loader)
 print(f"Acurácia no conjunto de teste (Melhor ponto do modelo): {accuracy * 100:.2f}%")
+
+#############################################################################
+#                     Calcula a Matriz de Confusão da Callback              #
+#############################################################################
+
+def calcular_previsoes_e_rotulos(model, dataloader):
+    model.to(device) 
+    model.eval()
+    all_preds = []
+    all_labels = []
+    
+    with torch.no_grad():
+        for images, labels in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            
+            all_preds.extend(predicted.cpu().numpy())  # Armazena as previsões
+            all_labels.extend(labels.cpu().numpy())  # Armazena os rótulos reais
+    
+    return np.array(all_preds), np.array(all_labels)
+
+# Carregar o melhor modelo
+model.load_state_dict(torch.load(best_model_path)['state_dict'])
+model.to(device)
+
+# Calcular as previsões e os rótulos no conjunto de teste
+predictions, true_labels = calcular_previsoes_e_rotulos(model, test_loader)
+
+# Gerar a matriz de confusão
+conf_matrix = confusion_matrix(true_labels, predictions)
+
+# Plotar a matriz de confusão usando seaborn
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=train_dataset.classes, yticklabels=train_dataset.classes)
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix')
+plt.savefig("./graph/confusion_matrix_pytorch.jpg")

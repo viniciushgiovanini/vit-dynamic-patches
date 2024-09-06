@@ -39,22 +39,12 @@ class ModeloBin(pl.LightningModule):
         for param in self.model.classifier.parameters():
             param.requires_grad = True
         
-        # Descongela o MLP
-        # cont  = 0
-        # for name, param in self.model.named_parameters():
-        #   if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
-        #   # if 'encoder.layer' in name and ('output.dense' in name):
-        #     if cont < 12:
-        #       param.requires_grad = True
-        #       cont += 1
-        # print("Quantidade de Camadas do MLP: " + str(cont))
-              
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
 
         self.model.classifier = nn.Sequential(
             nn.Linear(self.model.config.hidden_size, 16),
             nn.ReLU(),
-            nn.Dropout(0.7),  # Aumentar o dropout
+            nn.Dropout(0.3),
             nn.Linear(16, 1)
         )
         # Criterio de Perda é o Bianry Cross Entropy
@@ -108,5 +98,5 @@ class ModeloBin(pl.LightningModule):
 
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=0.001)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

@@ -40,8 +40,8 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 64
-num_epochs = 10
-learning_rate = 0.0001
+num_epochs = 30
+learning_rate = 0.001
 # total_steps = 100
 img_size = (224, 224)
 patch_size = (16,16)
@@ -191,9 +191,24 @@ plt.legend()
 plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 
 
-#############################################################################
+# ############################################################################
 #          Calcula e Compara a acuracia do Modelo e da Callback
-#############################################################################
+# ############################################################################
+
+# def calcular_acuracia_multiclasse(model, dataloader):
+#     model.to(device) 
+#     model.eval()
+#     correct = 0
+#     total = 0
+#     with torch.no_grad():
+#         for images, labels in dataloader:
+#             images, labels = images.to(device), labels.to(device)
+#             outputs = model(images)
+#             _, predicted = torch.max(outputs, 1)
+#             total += labels.size(0)
+#             correct += (predicted == labels).sum().item()
+#     return correct / total
+
 
 def calcular_acuracia(model, dataloader):
     model.to(device) 
@@ -204,9 +219,11 @@ def calcular_acuracia(model, dataloader):
         for images, labels in dataloader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
-            _, predicted = torch.max(outputs, 1)
+            probabilities = torch.sigmoid(outputs)
+            predicted = (probabilities > 0.5).int()
             total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            correct += (predicted.squeeze() == labels).sum().item()
+    
     return correct / total
 
 # Calcular a acurácia no conjunto de teste
@@ -229,37 +246,37 @@ print(f"Acurácia no conjunto de teste (Melhor ponto do modelo): {accuracy * 100
 #                     Calcula a Matriz de Confusão da Callback              #
 #############################################################################
 
-def calcular_previsoes_e_rotulos(model, dataloader):
-    model.to(device) 
-    model.eval()
-    all_preds = []
-    all_labels = []
+# def calcular_previsoes_e_rotulos(model, dataloader):
+#     model.to(device) 
+#     model.eval()
+#     all_preds = []
+#     all_labels = []
     
-    with torch.no_grad():
-        for images, labels in dataloader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            _, predicted = torch.max(outputs, 1)
+#     with torch.no_grad():
+#         for images, labels in dataloader:
+#             images, labels = images.to(device), labels.to(device)
+#             outputs = model(images)
+#             _, predicted = torch.max(outputs, 1)
             
-            all_preds.extend(predicted.cpu().numpy())  # Armazena as previsões
-            all_labels.extend(labels.cpu().numpy())  # Armazena os rótulos reais
+#             all_preds.extend(predicted.cpu().numpy())  # Armazena as previsões
+#             all_labels.extend(labels.cpu().numpy())  # Armazena os rótulos reais
     
-    return np.array(all_preds), np.array(all_labels)
+#     return np.array(all_preds), np.array(all_labels)
 
-# Carregar o melhor modelo
-model.load_state_dict(torch.load(best_model_path)['state_dict'])
-model.to(device)
+# # Carregar o melhor modelo
+# model.load_state_dict(torch.load(best_model_path)['state_dict'])
+# model.to(device)
 
-# Calcular as previsões e os rótulos no conjunto de teste
-predictions, true_labels = calcular_previsoes_e_rotulos(model, test_loader)
+# # Calcular as previsões e os rótulos no conjunto de teste
+# predictions, true_labels = calcular_previsoes_e_rotulos(model, test_loader)
 
-# Gerar a matriz de confusão
-conf_matrix = confusion_matrix(true_labels, predictions)
+# # Gerar a matriz de confusão
+# conf_matrix = confusion_matrix(true_labels, predictions)
 
-# Plotar a matriz de confusão usando seaborn
-plt.figure(figsize=(8, 6))
-sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=train_dataset.classes, yticklabels=train_dataset.classes)
-plt.xlabel('Predicted')
-plt.ylabel('True')
-plt.title('Confusion Matrix')
-plt.savefig("./graph/confusion_matrix_pytorch.jpg")
+# # Plotar a matriz de confusão usando seaborn
+# plt.figure(figsize=(8, 6))
+# sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=train_dataset.classes, yticklabels=train_dataset.classes)
+# plt.xlabel('Predicted')
+# plt.ylabel('True')
+# plt.title('Confusion Matrix')
+# plt.savefig("./graph/confusion_matrix_pytorch.jpg")

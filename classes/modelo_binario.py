@@ -39,12 +39,20 @@ class ModeloBin(pl.LightningModule):
         for param in self.model.classifier.parameters():
             param.requires_grad = True
         
-        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
-
+        # Descongela o MLP
+        # cont  = 0
+        # for name, param in self.model.named_parameters():
+        #   if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
+        #   # if 'encoder.layer' in name and ('output.dense' in name):
+        #     # if cont < 12:
+        #       param.requires_grad = True
+        #       cont += 1
+        # print("Quantidade de Camadas do MLP: " + str(cont))
+        
         self.model.classifier = nn.Sequential(
             nn.Linear(self.model.config.hidden_size, 16),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             nn.Linear(16, 1)
         )
         # Criterio de Perda é o Bianry Cross Entropy

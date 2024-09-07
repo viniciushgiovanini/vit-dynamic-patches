@@ -98,8 +98,8 @@ num_patch = ((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0]))
 print(f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")
 
 # model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
-# model = Modelo(num_classes, learning_rate)
-model = ModeloBin(num_classes, learning_rate)
+model = Modelo(num_classes, learning_rate)
+# model = ModeloBin(num_classes, learning_rate)
 
 ###########################
 # Cria Logger para Metricas

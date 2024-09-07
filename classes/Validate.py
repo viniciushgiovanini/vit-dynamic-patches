@@ -99,21 +99,24 @@ class Validate:
       if i == qtd_exibicao:
         break
       
-  def validate_qtd(self, path_paste,resposta ,type_model, dicionario_labels, ):
-    all_files_and_dirs = os.listdir(path_paste)
+  def _validate_qtd(self, files,resposta ,type_model, dicionario_labels, ):
+    # all_files_and_dirs = os.listdir(path_paste)
 
-    # Filtra apenas os arquivos
-    files = [f for f in all_files_and_dirs if os.path.isfile(os.path.join(path_paste, f))]
+    # # Filtra apenas os arquivos
+    # files = [f for f in all_files_and_dirs if os.path.isfile(os.path.join(path_paste, f))]
 
     qtd_total = len(files)
     
     contador_certo = 0
     
+    files_return = files.copy()
+    
+    
     # for i, file in enumerate(files):
     for i, file in tqdm(enumerate(files), desc=f"Processando imagens...", unit=" Imagens"):
           
-      image_path = f"{path_paste}/{file}"
-      image = Image.open(image_path).convert('RGB')
+      # image_path = f"{path_paste}/{file}"
+      image = Image.open(file).convert('RGB')
 
       # Transforme a imagem
       transform = T.Compose([
@@ -147,8 +150,20 @@ class Validate:
       
       if retorno == resposta:
         contador_certo += 1
+        files_return.remove(file)
         
-    return f'{contador_certo}/{qtd_total}'
+        
+    return f'{contador_certo}/{qtd_total}', files_return
+  
+  def _listar_images(self, path):
+    all_image = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    
+    all_images_path_complete = []    
+    for each_img in all_image:
+        all_images_path_complete.append(path+ "/" + each_img)
+    
+    return all_images_path_complete  
+     
   
   def plot_confusion_matrix(self, arrays, labels_name):
     conf_matrix = np.array(arrays)
@@ -172,18 +187,23 @@ class Validate:
         # Gera as combinações das outras pastas (exemplo: [cachorro, passarinho])
         outras_pastas = [folder for folder in all_folders]
 
+        lista_imagens_each_class = self._listar_images(os.path.join(main_path, each_folder))
+        
         for outra_pasta in outras_pastas:
             # Roda a validação para each_folder com resposta sendo outra_pasta
-            result = self.validate_qtd(
-                path_paste=os.path.join(main_path, each_folder),
+            result, lista_imagens_each_class = self._validate_qtd(
+                files=lista_imagens_each_class,
                 resposta=outra_pasta,
                 type_model=self.model_name,
                 dicionario_labels=labels
             )
-            value_s = result.split("/")
             
+            value_s = result.split("/")
             # Armazena o resultado no dicionário
             resultados[each_folder].append(int(value_s[0]))
+            
+            if len(lista_imagens_each_class) == 0:
+              break
 
     full_list = []
     
@@ -191,3 +211,17 @@ class Validate:
       full_list.append(each)
     
     self.plot_confusion_matrix(arrays=full_list, labels_name=all_folders)
+    
+    
+    
+  def validate_one_path(self, path, resposta, type_model, dicionario_labels):
+    
+    lista_imagens_each_class = self._listar_images(path=path)
+    
+    result, _ = self._validate_qtd(
+                files=lista_imagens_each_class,
+                resposta=resposta,
+                type_model=type_model,
+                dicionario_labels=dicionario_labels
+            )
+    return result

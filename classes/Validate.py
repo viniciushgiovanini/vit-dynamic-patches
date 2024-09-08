@@ -49,7 +49,7 @@ class Validate:
             return key
     return None
   
-  def validate_show(self,path_paste, type_model, dicionario_labels, qtd_exibicao=5):
+  def validate_show(self,path_paste, dicionario_labels, qtd_exibicao=5):
     all_files_and_dirs = os.listdir(path_paste)
 
     # Filtra apenas os arquivos
@@ -72,7 +72,7 @@ class Validate:
 
       self.model.eval()
 
-      if type_model == "multiclass":
+      if self.model_name == "multiclass":
         with torch.no_grad():
           output = self.model(image_tensor)
           
@@ -80,7 +80,7 @@ class Validate:
           
           prediction = torch.argmax(probabilities, dim=1).item()
      
-      elif(type_model == "binario"):
+      elif(self.model_name == "binario"):
         with torch.no_grad():
           output = self.model(image_tensor)
 
@@ -99,7 +99,7 @@ class Validate:
       if i == qtd_exibicao:
         break
       
-  def _validate_qtd(self, files, todas_resposta ,resultado, type_model, dicionario_labels, ):
+  def _validate_qtd(self, files, resultado, dicionario_labels, ):
 
     for i, file in tqdm(enumerate(files), desc=f"Processando imagens...", unit=" Imagens"):
           
@@ -117,7 +117,7 @@ class Validate:
       # Certifique-se de que o modelo está em modo de avaliação
       self.model.eval()
 
-      if type_model == "multiclass":
+      if self.model_name  == "multiclass":
         with torch.no_grad():
           output = self.model(image_tensor)
           
@@ -125,7 +125,7 @@ class Validate:
           
           prediction = torch.argmax(probabilities, dim=1).item()
      
-      elif(type_model == "binario"):
+      elif(self.model_name  == "binario"):
         with torch.no_grad():
           output = self.model(image_tensor)
 
@@ -176,9 +176,7 @@ class Validate:
             # Roda a validação para each_folder com resposta sendo outra_pasta
         resultados[each_folder] = self._validate_qtd(
               files=lista_imagens_each_class,
-              todas_resposta=outras_pastas,
               resultado=resultados[each_folder],              
-              type_model=self.model_name,
               dicionario_labels=labels,
               
           )

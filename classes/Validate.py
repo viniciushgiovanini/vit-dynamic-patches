@@ -52,7 +52,6 @@ class Validate:
   def validate_show(self,path_paste, dicionario_labels, qtd_exibicao=5):
     all_files_and_dirs = os.listdir(path_paste)
 
-    # Filtra apenas os arquivos
     files = [f for f in all_files_and_dirs if os.path.isfile(os.path.join(path_paste, f))]
 
     for i, file in enumerate(files):
@@ -61,7 +60,6 @@ class Validate:
       image_path = f"{path_paste}/{file}"
       image = Image.open(image_path).convert('RGB')
 
-      # Transforme a imagem
       transform = T.Compose([
           T.Resize((224, 224)),
           T.ToTensor(),
@@ -105,7 +103,6 @@ class Validate:
           
       image = Image.open(file).convert('RGB')
 
-      # Transforme a imagem
       transform = T.Compose([
           T.Resize((224, 224)),
           T.ToTensor(),
@@ -114,7 +111,6 @@ class Validate:
 
       image_tensor = transform(image).unsqueeze(0)
 
-      # Certifique-se de que o modelo está em modo de avaliação
       self.model.eval()
 
       if self.model_name  == "multiclass":
@@ -152,7 +148,6 @@ class Validate:
   def plot_confusion_matrix(self, arrays, labels_name):
     conf_matrix = np.array(arrays)
 
-    # Plotar a matriz de confusão
     plt.figure(figsize=(8, 6))
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False,
                 xticklabels=labels_name, yticklabels=labels_name)
@@ -166,14 +161,11 @@ class Validate:
     
     resultados = {folder: {predicts: 0 for predicts in all_folders} for folder in all_folders}
     
-    # Para cada pasta (por exemplo: gato)
     for each_folder in all_folders:
-        # Gera as combinações das outras pastas (exemplo: [cachorro, passarinho])
         outras_pastas = [folder for folder in all_folders]
 
         lista_imagens_each_class = self._listar_images(os.path.join(main_path, each_folder))
         
-            # Roda a validação para each_folder com resposta sendo outra_pasta
         resultados[each_folder] = self._validate_qtd(
               files=lista_imagens_each_class,
               resultado=resultados[each_folder],              

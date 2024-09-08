@@ -5,9 +5,9 @@ import pytorch_lightning as pl
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class Modelo(pl.LightningModule):
+class ModeloBin(pl.LightningModule):
     def __init__(self, num_class, learning_rate):
-        super(Modelo, self).__init__()
+        super(ModeloBin, self).__init__()
         
         # Salvar os hyperparametros
         self.save_hyperparameters()
@@ -17,8 +17,9 @@ class Modelo(pl.LightningModule):
         self.learning_rate = learning_rate
       
         # Carregar um modelo pré-treinado
-        base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
+        # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
+        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
         # base_model = ViTModel.from_pretrained('amunchet/rorshark-vit-base')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
@@ -47,28 +48,15 @@ class Modelo(pl.LightningModule):
         #       param.requires_grad = True
         #       cont += 1
         # print("Quantidade de Camadas do MLP: " + str(cont))
-              
-        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
-        # self.model.classifier = nn.Sequential(
-        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.5),
-        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.5),
-        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.5),
-        #     nn.Linear(self.model.config.hidden_size, self.num_class)
-        # )
+        
         self.model.classifier = nn.Sequential(
             nn.Linear(self.model.config.hidden_size, 16),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(16, self.num_class)
+            nn.Linear(16, 1)
         )
-        # Criterio de Perda é o CrossEntropyLoss
-        self.criterion = nn.CrossEntropyLoss()
+        # Criterio de Perda é o Bianry Cross Entropy
+        self.criterion = nn.BCEWithLogitsLoss()
         print("----------------------------------------------------------------")
         print(self.model)
 
@@ -84,7 +72,7 @@ class Modelo(pl.LightningModule):
 
         # Passa as img para os dispositivos GPU/CPU
         images, labels = batch
-        images, labels = images.to(device), labels.to(device)
+        images, labels = images.to(device), labels.to(device).float().unsqueeze(1)
         
         # Obte os logits passando as imagens através do foward 
         logits = self(images)
@@ -93,7 +81,7 @@ class Modelo(pl.LightningModule):
         loss = self.criterion(logits, labels)
         
         # Retorna a previsão do modelo
-        _, predicted = torch.max(logits, 1)
+        predicted = torch.sigmoid(logits) > 0.5
         
         # Realiza o calcula da acuracia
         accuracy = (predicted == labels).float().mean()
@@ -108,15 +96,15 @@ class Modelo(pl.LightningModule):
     # Faz a mesma coisa do training_step só que na etapa de validação
     def validation_step(self, batch):
         images, labels = batch
-        images, labels = images.to(device), labels.to(device)
+        images, labels = images.to(device), labels.to(device).float().unsqueeze(1)
         logits = self(images)
         loss = self.criterion(logits, labels)
-        _, predicted = torch.max(logits, 1)
+        predicted = torch.sigmoid(logits) > 0.5
         accuracy = (predicted == labels).float().mean()
         self.log('val_loss', loss, prog_bar=True)
         self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
 
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=0.001)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

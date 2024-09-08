@@ -37,7 +37,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 64
-num_epochs = 100
+num_epochs = 200
 learning_rate = 0.0001
 # total_steps = 100
 img_size = (224, 224)
@@ -192,22 +192,22 @@ plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 #          Calcula e Compara a acuracia do Modelo e da Callback
 # ############################################################################
 
-# def calcular_acuracia_multiclasse(model, dataloader):
-#     model.to(device) 
-#     model.eval()
-#     correct = 0
-#     total = 0
-#     with torch.no_grad():
-#         for images, labels in dataloader:
-#             images, labels = images.to(device), labels.to(device)
-#             outputs = model(images)
-#             _, predicted = torch.max(outputs, 1)
-#             total += labels.size(0)
-#             correct += (predicted == labels).sum().item()
-#     return correct / total
+def calcular_acuracia_multiclasse(model, dataloader):
+    model.to(device) 
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return correct / total
 
 
-def calcular_acuracia(model, dataloader):
+def calcular_acuracia_binario(model, dataloader):
     model.to(device) 
     model.eval()
     correct = 0
@@ -225,7 +225,7 @@ def calcular_acuracia(model, dataloader):
 
 # Calcular a acurácia no conjunto de teste
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
-accuracy = calcular_acuracia(model, test_loader)
+accuracy = calcular_acuracia_multiclasse(model, test_loader)
 print(f"Acurácia no conjunto de teste: {accuracy * 100:.2f}%")
 
 
@@ -236,5 +236,5 @@ model.load_state_dict(torch.load(best_model_path)['state_dict'])
 model.to(device)
 
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
-accuracy = calcular_acuracia(model, test_loader)
+accuracy = calcular_acuracia_multiclasse(model, test_loader)
 print(f"Acurácia no conjunto de teste (Melhor ponto do modelo): {accuracy * 100:.2f}%")

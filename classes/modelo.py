@@ -49,17 +49,23 @@ class Modelo(pl.LightningModule):
         # print("Quantidade de Camadas do MLP: " + str(cont))
               
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
+        # self.model.classifier = nn.Sequential(
+        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(self.model.config.hidden_size, self.num_class)
+        # )
         self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.Linear(self.model.config.hidden_size, 16),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(self.model.config.hidden_size, self.num_class)
+            nn.Linear(16, self.num_class)
         )
         # Criterio de Perda é o CrossEntropyLoss
         self.criterion = nn.CrossEntropyLoss()

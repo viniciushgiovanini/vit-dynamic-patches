@@ -99,23 +99,10 @@ class Validate:
       if i == qtd_exibicao:
         break
       
-  def _validate_qtd(self, files,resposta ,type_model, dicionario_labels, ):
-    # all_files_and_dirs = os.listdir(path_paste)
+  def _validate_qtd(self, files, todas_resposta ,resultado, type_model, dicionario_labels, ):
 
-    # # Filtra apenas os arquivos
-    # files = [f for f in all_files_and_dirs if os.path.isfile(os.path.join(path_paste, f))]
-
-    qtd_total = len(files)
-    
-    contador_certo = 0
-    
-    files_return = files.copy()
-    
-    
-    # for i, file in enumerate(files):
     for i, file in tqdm(enumerate(files), desc=f"Processando imagens...", unit=" Imagens"):
           
-      # image_path = f"{path_paste}/{file}"
       image = Image.open(file).convert('RGB')
 
       # Transforme a imagem
@@ -125,7 +112,7 @@ class Validate:
           T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
       ])
 
-      image_tensor = transform(image).unsqueeze(0)  # Adicione uma dimensão para o batch
+      image_tensor = transform(image).unsqueeze(0)
 
       # Certifique-se de que o modelo está em modo de avaliação
       self.model.eval()
@@ -148,12 +135,9 @@ class Validate:
       
       retorno = self._get_key_from_value(dicte=dicionario_labels, target_value=prediction)
       
-      if retorno == resposta:
-        contador_certo += 1
-        files_return.remove(file)
+      resultado[retorno] +=1
         
-        
-    return f'{contador_certo}/{qtd_total}', files_return
+    return resultado
   
   def _listar_images(self, path):
     all_image = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
@@ -180,7 +164,7 @@ class Validate:
   def generate_confusion_matrix(self, main_path, labels):
     all_folders = os.listdir(main_path)
     
-    resultados = {folder: [] for folder in all_folders}
+    resultados = {folder: {predicts: 0 for predicts in all_folders} for folder in all_folders}
     
     # Para cada pasta (por exemplo: gato)
     for each_folder in all_folders:
@@ -189,39 +173,26 @@ class Validate:
 
         lista_imagens_each_class = self._listar_images(os.path.join(main_path, each_folder))
         
-        for outra_pasta in outras_pastas:
             # Roda a validação para each_folder com resposta sendo outra_pasta
-            result, lista_imagens_each_class = self._validate_qtd(
-                files=lista_imagens_each_class,
-                resposta=outra_pasta,
-                type_model=self.model_name,
-                dicionario_labels=labels
-            )
-            
-            value_s = result.split("/")
-            # Armazena o resultado no dicionário
-            resultados[each_folder].append(int(value_s[0]))
-            
-            if len(lista_imagens_each_class) == 0:
-              break
+        resultados[each_folder] = self._validate_qtd(
+              files=lista_imagens_each_class,
+              todas_resposta=outras_pastas,
+              resultado=resultados[each_folder],              
+              type_model=self.model_name,
+              dicionario_labels=labels,
+              
+          )
+        
 
     full_list = []
     
     for each in resultados.values():
-      full_list.append(each)
+      
+      merge_list = []
+      
+      for each_predict in each.values():
+        merge_list.append(each_predict)
+        
+      full_list.append(merge_list)
     
     self.plot_confusion_matrix(arrays=full_list, labels_name=all_folders)
-    
-    
-    
-  def validate_one_path(self, path, resposta, type_model, dicionario_labels):
-    
-    lista_imagens_each_class = self._listar_images(path=path)
-    
-    result, _ = self._validate_qtd(
-                files=lista_imagens_each_class,
-                resposta=resposta,
-                type_model=type_model,
-                dicionario_labels=dicionario_labels
-            )
-    return result

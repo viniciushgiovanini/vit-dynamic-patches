@@ -37,7 +37,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 64
-num_epochs = 200
+num_epochs = 10
 learning_rate = 0.0001
 # total_steps = 100
 img_size = (224, 224)
@@ -98,8 +98,8 @@ num_patch = ((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0]))
 print(f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")
 
 # model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
-model = Modelo(num_classes, learning_rate)
-# model = ModeloBin(num_classes, learning_rate)
+# model = Modelo(num_classes, learning_rate)
+model = ModeloBin(num_classes, learning_rate)
 
 ###########################
 # Cria Logger para Metricas

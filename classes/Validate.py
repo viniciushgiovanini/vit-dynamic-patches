@@ -1,7 +1,6 @@
 from classes.modelo_custom import ModeloCustom
 from classes.modelo import Modelo
 from classes.modelo_binario import ModeloBin
-from classes.modelo import Modelo
 from classes.modelo_custom import ModeloCustom
 import torch
 import os
@@ -11,6 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from tqdm import tqdm
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
+import cv2
 
 
 
@@ -186,3 +188,36 @@ class Validate:
       full_list.append(merge_list)
     
     self.plot_confusion_matrix(arrays=full_list, labels_name=all_folders)
+    
+    
+  def run_grad_cam(self, image_dir):
+    image_paths = [os.path.join(image_dir, img_name) for img_name in os.listdir(image_dir) if img_name.endswith('.png')]
+    num_images = len(image_paths)
+    fig, axes = plt.subplots(num_images, 2, figsize=(10, num_images * 5))
+
+    target_layers = [self.model.model.vit.embeddings.patch_embeddings.projection]
+    gradcam = GradCAM(model=self.model, target_layers=target_layers)
+    
+    for i, image_path in enumerate(image_paths):
+        # rgb_img, cam_image = process_image(image_path)
+        rgb_img = cv2.imread(image_path)[:, :, ::-1]  # BGR para RGB
+        rgb_img = cv2.resize(rgb_img, (224, 224))
+        rgb_img = np.float32(rgb_img) / 255
+        input_tensor = preprocess_image(rgb_img, mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+
+        # Calcular o Grad-CAM
+        targets = None
+        grayscale_cam = gradcam(input_tensor=input_tensor, targets=targets)
+
+        # Gerar imagem com Grad-CAM
+        cam_image = show_cam_on_image(rgb_img, grayscale_cam[0, :], use_rgb=True)
+        axes[i, 0].imshow(rgb_img)
+        axes[i, 0].set_title('Imagem Original')
+        axes[i, 0].axis('off')
+        
+        axes[i, 1].imshow(cam_image)
+        axes[i, 1].set_title('Grad-CAM')
+        axes[i, 1].axis('off')
+
+    plt.tight_layout()
+    plt.show()

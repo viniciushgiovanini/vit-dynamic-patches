@@ -13,7 +13,7 @@ from tqdm import tqdm
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
 import cv2
-
+import shap
 
 
 class Validate:
@@ -164,8 +164,7 @@ class Validate:
     resultados = {folder: {predicts: 0 for predicts in all_folders} for folder in all_folders}
     
     for each_folder in all_folders:
-        outras_pastas = [folder for folder in all_folders]
-
+      
         lista_imagens_each_class = self._listar_images(os.path.join(main_path, each_folder))
         
         resultados[each_folder] = self._validate_qtd(
@@ -199,17 +198,14 @@ class Validate:
     gradcam = GradCAM(model=self.model, target_layers=target_layers)
     
     for i, image_path in enumerate(image_paths):
-        # rgb_img, cam_image = process_image(image_path)
-        rgb_img = cv2.imread(image_path)[:, :, ::-1]  # BGR para RGB
+        rgb_img = cv2.imread(image_path)[:, :, ::-1]
         rgb_img = cv2.resize(rgb_img, (224, 224))
         rgb_img = np.float32(rgb_img) / 255
         input_tensor = preprocess_image(rgb_img, mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 
-        # Calcular o Grad-CAM
         targets = None
         grayscale_cam = gradcam(input_tensor=input_tensor, targets=targets)
 
-        # Gerar imagem com Grad-CAM
         cam_image = show_cam_on_image(rgb_img, grayscale_cam[0, :], use_rgb=True)
         axes[i, 0].imshow(rgb_img)
         axes[i, 0].set_title('Imagem Original')
@@ -221,3 +217,33 @@ class Validate:
 
     plt.tight_layout()
     plt.show()
+    
+  
+  def shapley_model_predict(self, images):
+    with torch.no_grad():
+        images = torch.tensor(images).float()
+        images = images.permute(0, 3, 1, 2) 
+        return self.model(images).cpu().numpy()
+    
+  def run_shapley(self, image_dir, img_tam=(224,224)):
+    image_paths = [os.path.join(image_dir, img_name) for img_name in os.listdir(image_dir) if img_name.endswith('.png')]
+    num_images = len(image_paths)
+    for each_image_path in image_paths:
+      
+      image = Image.open(each_image_path).convert('RGB')
+      
+      image = image.resize((224, 224))
+
+      image_array = np.array(image)
+
+      image_array = np.expand_dims(image_array, axis=0)
+
+      masker = shap.maskers.Image("inpaint_telea", image_array[0].shape)
+
+      explainer = shap.Explainer(self.shapley_model_predict, masker)
+
+      shap_values = explainer(image_array)
+
+      plt.figure(figsize=(20, num_images * 5))  
+      shap.image_plot(shap_values, image_array)
+      plt.show()

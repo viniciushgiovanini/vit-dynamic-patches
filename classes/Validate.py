@@ -8,7 +8,7 @@ from PIL import Image
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
+from sklearn.metrics import ConfusionMatrixDisplay
 from tqdm import tqdm
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
@@ -151,10 +151,8 @@ class Validate:
     conf_matrix = np.array(arrays)
 
     plt.figure(figsize=(8, 6))
-    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False,
-                xticklabels=labels_name, yticklabels=labels_name)
-    plt.xlabel('Predicted')
-    plt.ylabel('True')
+    disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=labels_name)
+    disp.plot()
     plt.title('Confusion Matrix')
     plt.show()
     

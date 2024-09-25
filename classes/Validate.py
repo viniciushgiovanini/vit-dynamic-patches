@@ -8,6 +8,7 @@ from PIL import Image
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn.metrics import ConfusionMatrixDisplay
 from tqdm import tqdm
 from pytorch_grad_cam import GradCAM
@@ -147,16 +148,27 @@ class Validate:
     return all_images_path_complete  
      
   
-  def plot_confusion_matrix(self, arrays, labels_name):
-    conf_matrix = np.array(arrays)
-
-    plt.figure(figsize=(8, 6))
-    disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=labels_name)
-    disp.plot()
-    plt.title('Confusion Matrix')
-    plt.show()
+  def plot_confusion_matrix(self, arrays, labels_name, type_plot):
     
-  def generate_confusion_matrix(self, main_path, labels):
+    if type_plot == "sns":
+      conf_matrix = np.array(arrays)
+
+      plt.figure(figsize=(18, 10))
+      sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False,
+                xticklabels=labels_name, yticklabels=labels_name)
+      plt.xlabel('Predicted')
+      plt.ylabel('True')
+      plt.title('Confusion Matrix')
+      plt.show()
+    if(type_plot == "scikit"):
+      conf_matrix = np.array(arrays)
+      plt.figure(figsize=(8, 6))
+      disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=labels_name)
+      disp.plot()
+      plt.title('Confusion Matrix')
+      plt.show()
+    
+  def generate_confusion_matrix(self, main_path, labels, type_plot):
     all_folders = os.listdir(main_path)
     
     resultados = {folder: {predicts: 0 for predicts in all_folders} for folder in all_folders}
@@ -184,7 +196,7 @@ class Validate:
         
       full_list.append(merge_list)
     
-    self.plot_confusion_matrix(arrays=full_list, labels_name=all_folders)
+    self.plot_confusion_matrix(arrays=full_list, labels_name=all_folders, type_plot=type_plot)
     
     
   def run_grad_cam(self, image_dir):
@@ -223,25 +235,36 @@ class Validate:
         images = images.permute(0, 3, 1, 2) 
         return self.model(images).cpu().numpy()
     
-  def run_shapley(self, image_dir, img_tam=(224,224)):
+  def run_shapley(self, image_dir,class_names, img_tam=(224,224)):
     image_paths = [os.path.join(image_dir, img_name) for img_name in os.listdir(image_dir) if img_name.endswith('.png')]
     num_images = len(image_paths)
+    
+    class_names_list = list(class_names.keys())
+    
     for each_image_path in image_paths:
-      
-      image = Image.open(each_image_path).convert('RGB')
-      
-      image = image.resize((224, 224))
+        # Abrir e preparar a imagem
+        image = Image.open(each_image_path).convert('RGB')
+        image = image.resize(img_tam)
+        image_array = np.array(image)
+        image_array = np.expand_dims(image_array, axis=0)
 
-      image_array = np.array(image)
+        # Fazer a previsão
+        predictions = self.shapley_model_predict(image_array)
+        predicted_class_index = np.argmax(predictions)  # Índice da classe prevista
+        predicted_class_name = class_names_list[predicted_class_index]  # Nome da classe prevista
 
-      image_array = np.expand_dims(image_array, axis=0)
+        print(f'Previsão: {predicted_class_name}')
+        # Criar o masker
+        masker = shap.maskers.Image("inpaint_telea", image_array[0].shape)
 
-      masker = shap.maskers.Image("inpaint_telea", image_array[0].shape)
+        # Criar o explainer
+        explainer = shap.Explainer(self.shapley_model_predict, masker, output_names=class_names_list)
 
-      explainer = shap.Explainer(self.shapley_model_predict, masker)
+        # Calcular os valores SHAP
+        shap_values = explainer(image_array)
 
-      shap_values = explainer(image_array)
+        # Plotar os resultados
+        plt.figure(figsize=(20, num_images * 5))
+        shap.image_plot(shap_values, image_array)
 
-      plt.figure(figsize=(20, num_images * 5))  
-      shap.image_plot(shap_values, image_array)
-      plt.show()
+        plt.show()

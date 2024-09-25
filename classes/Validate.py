@@ -150,22 +150,37 @@ class Validate:
   
   def plot_confusion_matrix(self, arrays, labels_name, type_plot):
     
+    labels_name.remove('Negative for intraepithelial lesion')
+       
+    if self.model_name == "multiclass":
+     labels_name.insert(4, "Negative")
+    if self.model_name == "binario":
+     labels_name.insert(0, "Negative")
+      
     if type_plot == "sns":
       conf_matrix = np.array(arrays)
-
-      plt.figure(figsize=(18, 10))
-      sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False,
+      row_sums = conf_matrix.sum(axis=1, keepdims=True)  
+      percent_matrix = conf_matrix / row_sums * 100
+      plt.figure(figsize=(8, 6))
+      sns.heatmap(percent_matrix, annot=True, fmt='.2f', cmap='Blues', cbar=False,
                 xticklabels=labels_name, yticklabels=labels_name)
       plt.xlabel('Predicted')
       plt.ylabel('True')
+      plt.xticks(rotation=45)  
+      plt.yticks(rotation=45) 
       plt.title('Confusion Matrix')
       plt.show()
     if(type_plot == "scikit"):
       conf_matrix = np.array(arrays)
+      row_sums = conf_matrix.sum(axis=1, keepdims=True)  
+      percent_matrix = conf_matrix / row_sums * 100 
       plt.figure(figsize=(8, 6))
-      disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=labels_name)
+      disp = ConfusionMatrixDisplay(confusion_matrix=percent_matrix, display_labels=labels_name)
       disp.plot()
+      plt.xticks(rotation=45)  
+      plt.yticks(rotation=45) 
       plt.title('Confusion Matrix')
+      plt.tight_layout()
       plt.show()
     
   def generate_confusion_matrix(self, main_path, labels, type_plot):
@@ -241,29 +256,47 @@ class Validate:
     
     class_names_list = list(class_names.keys())
     
+    
+    
     for each_image_path in image_paths:
-        # Abrir e preparar a imagem
         image = Image.open(each_image_path).convert('RGB')
         image = image.resize(img_tam)
         image_array = np.array(image)
         image_array = np.expand_dims(image_array, axis=0)
+        
+        transform = T.Compose([
+          T.Resize((224, 224)),
+          T.ToTensor(),
+          T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
 
-        # Fazer a previsão
-        predictions = self.shapley_model_predict(image_array)
-        predicted_class_index = np.argmax(predictions)  # Índice da classe prevista
-        predicted_class_name = class_names_list[predicted_class_index]  # Nome da classe prevista
+        image_tensor = transform(image).unsqueeze(0)
+        
+        if  self.model_name  == "multiclass":
+          with torch.no_grad():
+            output = self.model(image_tensor)
+            
+            probabilities = torch.softmax(output, dim=1)
+            
+            prediction = torch.argmax(probabilities, dim=1).item()
+      
+        elif(self.model_name  == "binario"):
+          with torch.no_grad():
+            output = self.model(image_tensor)
 
-        print(f'Previsão: {predicted_class_name}')
-        # Criar o masker
+            probabilities = torch.sigmoid(output)
+
+            prediction = (probabilities > 0.5).int().item() 
+
+        retorno = self._get_key_from_value(dicte=class_names, target_value=prediction)
+        
+        print(f'Previsão: {retorno}')
         masker = shap.maskers.Image("inpaint_telea", image_array[0].shape)
 
-        # Criar o explainer
         explainer = shap.Explainer(self.shapley_model_predict, masker, output_names=class_names_list)
 
-        # Calcular os valores SHAP
         shap_values = explainer(image_array)
 
-        # Plotar os resultados
         plt.figure(figsize=(20, num_images * 5))
         shap.image_plot(shap_values, image_array)
 

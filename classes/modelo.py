@@ -47,6 +47,18 @@ class Modelo(pl.LightningModule):
         #       param.requires_grad = True
         #       cont += 1
         # print("Quantidade de Camadas do MLP: " + str(cont))
+        
+        # for param in self.model.vit.embeddings.patch_embeddings.projection.parameters():
+        #   param.requires_grad = True
+        
+        # for param in self.model.vit.embeddings.dropout.parameters(): 
+        #   param.requires_grad = True
+        
+        # self.model.vit.embeddings.dropout = nn.Dropout(0.4)
+                 
+        
+        # for name,param in self.model.vit.embeddings.patch_embeddings:
+        #   print(f'Printando o name: {name}, e o Param: {param}')
               
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         # self.model.classifier = nn.Sequential(

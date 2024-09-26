@@ -39,8 +39,8 @@ class ModeloBin(pl.LightningModule):
         for param in self.model.classifier.parameters():
             param.requires_grad = True
         
-        for param in self.model.vit.embeddings.patch_embeddings.projection.parameters():
-          param.requires_grad = True
+        # for param in self.model.vit.embeddings.patch_embeddings.projection.parameters():
+        #   param.requires_grad = True
         
         # Descongela o MLP
         # cont  = 0

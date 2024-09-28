@@ -15,7 +15,9 @@ class Modelo(pl.LightningModule):
         
         self.num_class = num_class
         self.learning_rate = learning_rate
-      
+
+        # self.layer_dropout = nn.Dropout(0.2)
+        
         # Carregar um modelo pré-treinado
         base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
@@ -38,6 +40,15 @@ class Modelo(pl.LightningModule):
         for param in self.model.classifier.parameters():
             param.requires_grad = True
         
+        
+        # Adiciona Dropout no modelo
+        # for each in self.model.vit.encoder.layer:
+          # each.attention.attention.dropout = self.layer_dropout
+          # each.attention.output.dropout = self.layer_dropout
+          # each.output.dropout = self.layer_dropout
+          
+        # self.model.vit.embeddings.dropout = self.layer_dropout
+        
         # Descongela o MLP
         # cont  = 0
         # for name, param in self.model.named_parameters():
@@ -48,18 +59,6 @@ class Modelo(pl.LightningModule):
         #       cont += 1
         # print("Quantidade de Camadas do MLP: " + str(cont))
         
-        # for param in self.model.vit.embeddings.patch_embeddings.projection.parameters():
-        #   param.requires_grad = True
-        
-        # for param in self.model.vit.embeddings.dropout.parameters(): 
-        #   param.requires_grad = True
-        
-        # self.model.vit.embeddings.dropout = nn.Dropout(0.4)
-                 
-        
-        # for name,param in self.model.vit.embeddings.patch_embeddings:
-        #   print(f'Printando o name: {name}, e o Param: {param}')
-              
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         # self.model.classifier = nn.Sequential(
         #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
@@ -131,4 +130,8 @@ class Modelo(pl.LightningModule):
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=0.001)
+        # optimizer = torch.optim.Adam([
+        #   {'params': self.model.vit.parameters(), 'lr': 1e-7},
+        #   {'params': self.model.classifier.parameters(), 'lr': self.learning_rate},
+        # ])
         return optimizer

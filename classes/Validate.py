@@ -15,6 +15,9 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
 import cv2
 import shap
+import random
+from torchvision.datasets import ImageFolder
+from torch.utils.data import DataLoader
 
 
 class Validate:
@@ -31,7 +34,10 @@ class Validate:
       self.model = ModeloCustom(self.num_class, self.learning_rate)
       
   
-    
+  def load_model_architecture(self, path_model, map_location= "cpu"):
+    self.model = torch.load(path_model, map_location=map_location)
+    self.model.eval() 
+  
   
   def load_default_model(self, path_model, map_location="cpu"):
     self.model.load_state_dict(torch.load(path_model, map_location=map_location))
@@ -214,9 +220,19 @@ class Validate:
     self.plot_confusion_matrix(arrays=full_list, labels_name=all_folders, type_plot=type_plot)
     
     
-  def run_grad_cam(self, image_dir):
+  def run_grad_cam(self, image_dir, qtd = 100):
     image_paths = [os.path.join(image_dir, img_name) for img_name in os.listdir(image_dir) if img_name.endswith('.png')]
-    num_images = len(image_paths)
+    
+    if qtd == None:
+      num_images = len(image_paths)
+    else:
+      
+      num_images = qtd
+      
+      random.shuffle(image_paths)
+
+      image_paths = image_paths[:qtd]
+    
     fig, axes = plt.subplots(num_images, 2, figsize=(10, num_images * 5))
 
     target_layers = [self.model.model.vit.embeddings.patch_embeddings.projection]
@@ -239,6 +255,9 @@ class Validate:
         axes[i, 1].imshow(cam_image)
         axes[i, 1].set_title('Grad-CAM')
         axes[i, 1].axis('off')
+        
+        if i == qtd:
+          break
 
     plt.tight_layout()
     plt.show()
@@ -301,3 +320,30 @@ class Validate:
         shap.image_plot(shap_values, image_array)
 
         plt.show()
+        
+  def calculate_accuracy(self, data_loader, device):
+    correct = 0
+    total = 0
+    
+    with torch.no_grad():  
+        for images, labels in data_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = self.model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    
+    accuracy = 100 * correct / total
+    return accuracy
+  
+  def get_dataloader_from_directory(self, root_path, batch_size=32, image_size=(224, 224)):
+    transform = T.Compose([
+        T.Resize(image_size),
+        T.ToTensor(),
+        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  
+    ])
+    
+    dataset = ImageFolder(root=root_path, transform=transform)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    
+    return data_loader

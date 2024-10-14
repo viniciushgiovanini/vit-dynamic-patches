@@ -36,10 +36,10 @@ print ('Current cuda device ', torch.cuda.current_device())
 #      HYPERPARAMS
 #########################
 start_time = time.time()
-batch_size = 64
-num_epochs = 200
-learning_rate = 0.0001
-# total_steps = 100
+batch_size = 32
+num_epochs = 10
+learning_rate = 1e-5
+# total_steps = 50
 img_size = (224, 224)
 patch_size = (16,16)
 
@@ -127,7 +127,8 @@ trainer = pl.Trainer(max_epochs=num_epochs,  limit_train_batches= total_steps,li
 trainer.fit(model, train_loader, val_loader)
 
 # salva modelo Treinado
-torch.save(model.state_dict(), './models/modelo_vit_gpu.pth')
+# torch.save(model.state_dict(), './models/modelo_vit_gpu.pth')
+torch.save(model, './models/modelo_vit_gpu.pth')
 
 #############################################################################
 #               Realiza criação do gráfico de loss e acuracia

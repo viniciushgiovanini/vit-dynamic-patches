@@ -54,3 +54,6 @@ typing_extensions==4.12.2
 tzdata==2024.1
 urllib3==2.2.2
 yarl==1.10.0
+grad-cam==1.5.3
+shap==0.46.0
+albumentations==1.4.16

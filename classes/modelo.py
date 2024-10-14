@@ -15,20 +15,22 @@ class Modelo(pl.LightningModule):
         
         self.num_class = num_class
         self.learning_rate = learning_rate
-      
+        # self.layer_dropout = nn.Dropout(0.2)
+        
         # Carregar um modelo pré-treinado
         base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
-        # base_model = ViTModel.from_pretrained('amunchet/rorshark-vit-base')
+        # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
+        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224', num_labels=6)
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
-        # self.model = ViTForImageClassification.from_pretrained('google/vit-large-patch16-224', num_labels=self.num_class, ignore_mismatched_sizes=True)
         
         self.model = ViTForImageClassification(config=base_model.config)
         self.model.vit = base_model
         print(self.model)
         self.model.to(device)
         print("----------------------------------------------------------------")
+       
+        
         
         # Congela todos os parametros
         for param in self.model.parameters():
@@ -38,35 +40,44 @@ class Modelo(pl.LightningModule):
         for param in self.model.classifier.parameters():
             param.requires_grad = True
         
-        # Descongela o MLP
-        # cont  = 0
-        # for name, param in self.model.named_parameters():
-        #   if 'encoder.layer' in name and ('intermediate.dense' in name or 'output.dense' in name):
-        #   # if 'encoder.layer' in name and ('output.dense' in name):
-        #     # if cont < 12:
-        #       param.requires_grad = True
-        #       cont += 1
-        # print("Quantidade de Camadas do MLP: " + str(cont))
-              
-        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
+        # Descongelar as camadas específicas
+        for name, param in self.model.named_parameters():
+            if any(layer_name in name for layer_name in [
+                "vit.embeddings.patch_embeddings.projection",
+                "vit.encoder.layer.11.intermediate",
+                "vit.encoder.layer.11.output",
+                "vit.encoder.layer.11.layernorm_before",
+                "vit.encoder.layer.11.layernorm_after"
+            ]):
+                param.requires_grad = True
+
+        # Adicionando Regularização
+        # self.model.vit.encoder.layer[11].output.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[10].output.dropout = self.layer_dropout
+        
+
+
+        self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         # self.model.classifier = nn.Sequential(
         #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
         #     nn.ReLU(),
-        #     nn.Dropout(0.5),
+        #     self.layer_dropout,
         #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
         #     nn.ReLU(),
-        #     nn.Dropout(0.5),
-        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.5),
+        #     self.layer_dropout,
         #     nn.Linear(self.model.config.hidden_size, self.num_class)
         # )
-        self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, 16),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(16, self.num_class)
-        )
+        # self.model.classifier = nn.Sequential(
+        #     nn.Linear(self.model.config.hidden_size, 32),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(32, self.num_class)
+        # )
+        
+        # Conferir as camadas que foram descongeladas
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                print(f"Layer {name} is trainable")
         # Criterio de Perda é o CrossEntropyLoss
         self.criterion = nn.CrossEntropyLoss()
         print("----------------------------------------------------------------")
@@ -115,8 +126,9 @@ class Modelo(pl.LightningModule):
         accuracy = (predicted == labels).float().mean()
         self.log('val_loss', loss, prog_bar=True)
         self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
-
+    
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=0.001)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
+       

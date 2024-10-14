@@ -15,13 +15,13 @@ class Modelo(pl.LightningModule):
         
         self.num_class = num_class
         self.learning_rate = learning_rate
-        self.layer_dropout = nn.Dropout(0.4)
+        # self.layer_dropout = nn.Dropout(0.2)
         
         # Carregar um modelo pré-treinado
         base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
         # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
-        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
+        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224', num_labels=6)
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
         
         self.model = ViTForImageClassification(config=base_model.config)
@@ -43,38 +43,37 @@ class Modelo(pl.LightningModule):
         # Descongelar as camadas específicas
         for name, param in self.model.named_parameters():
             if any(layer_name in name for layer_name in [
-                "vit.embeddings.patch_embeddings.projection",  
+                "vit.embeddings.patch_embeddings.projection",
                 "vit.encoder.layer.11.intermediate",
                 "vit.encoder.layer.11.output",
-                "vit.encoder.layer.11.layernorm",
-                "vit.layernorm",  
-                "vit.pooler"  
+                "vit.encoder.layer.11.layernorm_before",
+                "vit.encoder.layer.11.layernorm_after"
             ]):
                 param.requires_grad = True
 
         # Adicionando Regularização
-        # self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
-        # self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
-        # self.model.vit.encoder.layer[10].attention.output.dropout = self.layer_dropout
-        # self.model.vit.encoder.layer[11].attention.attention.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[11].output.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[10].output.dropout = self.layer_dropout
+        
 
-        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
-        self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-            nn.ReLU(),
-            self.layer_dropout,
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
-            nn.ReLU(),
-            self.layer_dropout,
-            nn.Linear(self.model.config.hidden_size, self.num_class)
-        )
+
+        self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         # self.model.classifier = nn.Sequential(
-        #     nn.Linear(self.model.config.hidden_size, 16),
+        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
         #     nn.ReLU(),
         #     self.layer_dropout,
-        #     nn.Linear(16, self.num_class)
+        #     nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+        #     nn.ReLU(),
+        #     self.layer_dropout,
+        #     nn.Linear(self.model.config.hidden_size, self.num_class)
         # )
-                
+        # self.model.classifier = nn.Sequential(
+        #     nn.Linear(self.model.config.hidden_size, 32),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5),
+        #     nn.Linear(32, self.num_class)
+        # )
+        
         # Conferir as camadas que foram descongeladas
         for name, param in self.model.named_parameters():
             if param.requires_grad:

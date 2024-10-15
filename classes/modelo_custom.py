@@ -70,17 +70,20 @@ class CustomPatchEmbedding(nn.Module):
                 else:
                     print(f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}")
             
-            ##################################
-            # Visualização do Patch Tensor
-            ##################################
-            self.visualizer.visualize_patches_with_tensor(patches)
+            
             
             # se o numero patches for menor que o ncessário, prenche com tesnores vazios
             if len(patches) < self.num_patches:
-                # print("AAAAAAAAAAAAAAAAAAAAA\n\n\n\n\n\n\n\n\n")
+                print("AAAAAAAAAAAAAAAAAAAAA\n\n\n\n\n\n\n\n\n")
                 missing_patches = self.num_patches - len(patches)
                 patches += [torch.zeros(channels, self.patch_size[0], self.patch_size[1], device=device)] * missing_patches
 
+            
+            ##################################
+            # Visualização do Patch Tensor
+            ##################################
+            # self.visualizer.visualize_patches_with_tensor(patches)
+            
             # Concatena os patches em um unico tensor
             patches = torch.stack(patches)  
 
@@ -110,23 +113,25 @@ class ModeloCustom(pl.LightningModule):
     def __init__(self, num_class, learning_rate, num_patch, input_size, patch_size):
         super(ModeloCustom, self).__init__()
         
+        self.save_hyperparameters()
         
         self.num_class = num_class
         self.learning_rate = learning_rate
+        self.layer_dropout = nn.Dropout(0.4)
       
         # Carregar um modelo pré-treinado
         base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        # base_model = ViTModel.from_pretrained('amunchet/rorshark-vit-base')
+        # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
+        # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
+        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
-        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-384')
-        # self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-384', num_labels=self.num_class, ignore_mismatched_sizes=True)
         
         self.model = ViTForImageClassification(config=base_model.config)
         self.model.vit = base_model
         
         self.model.vit.embeddings.patch_embeddings = CustomPatchEmbedding(
-            input_size=(3, input_size, input_size),  # Ajustar o tamanho da imagem de entrada
-            patch_size=patch_size,       # Tamanho do patch
+            input_size=(3, input_size, input_size),  
+            patch_size=patch_size,       
             embed_dim=self.model.config.hidden_size,
             num_patches=num_patch,
             is_visualizer=False,
@@ -137,46 +142,57 @@ class ModeloCustom(pl.LightningModule):
         self.model.to(device)
         print("----------------------------------------------------------------")
         
-        # Congelar o modelo Todo
+         # Congela todos os parametros
         for param in self.model.parameters():
             param.requires_grad = False
-            
-        # Congelar a camada de embeddings original
-        for param in self.model.vit.embeddings.parameters():
-            param.requires_grad = False
 
-        # Descongelar o classificador e o pooler
+        # Descongela somente o de classificação
         for param in self.model.classifier.parameters():
             param.requires_grad = True
-        for param in self.model.vit.pooler.parameters():
-            param.requires_grad = True
 
-        # Descongelar algumas camadas finais do encoder
-        num_layers_to_unfreeze = 6 
-        for i in range(-num_layers_to_unfreeze, 0):
-            for param in self.model.vit.encoder.layer[i].parameters():
+        # Descongelar as camadas específicas
+        for name, param in self.model.named_parameters():
+            if any(layer_name in name for layer_name in [
+                "vit.embeddings.patch_embeddings.projection",
+                "vit.encoder.layer.1s1.intermediate",
+                "vit.encoder.layer.11.output",
+                "vit.encoder.layer.11.layernorm",
+                "vit.layernorm",
+                "vit.pooler"
+            ]):
                 param.requires_grad = True
         
-        self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
-          
+        # Adicionando Regularização
+        # self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[10].attention.output.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[11].attention.attention.dropout = self.layer_dropout
+
+        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
+        self.model.classifier = nn.Sequential(
+            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.ReLU(),
+            self.layer_dropout,
+            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.ReLU(),
+            self.layer_dropout,
+            nn.Linear(self.model.config.hidden_size, self.num_class)
+        )
         # self.model.classifier = nn.Sequential(
-        #     nn.Linear(self.model.config.hidden_size, 512),
+        #     nn.Linear(self.model.config.hidden_size, 16),
         #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(512, 256),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(256, 128),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(128, self.num_class)
+        #     self.layer_dropout,
+        #     nn.Linear(16, self.num_class)
         # )
 
+        # Conferir as camadas que foram descongeladas
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                print(f"Layer {name} is trainable")
+        # Criterio de Perda é o CrossEntropyLoss
         self.criterion = nn.CrossEntropyLoss()
-        print(self.model)
         print("----------------------------------------------------------------")
-        # for name, module in self.model.named_modules():
-        #   print(f"{name}: {module}")
+        print(self.model)
    
     def forward(self, x):
         logits = self.model(x).logits
@@ -205,5 +221,5 @@ class ModeloCustom(pl.LightningModule):
         self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=5e-5)
         return optimizer

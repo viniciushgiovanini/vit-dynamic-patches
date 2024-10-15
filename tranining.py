@@ -37,7 +37,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 10
+num_epochs = 20
 learning_rate = 1e-5
 # total_steps = 50
 img_size = (224, 224)
@@ -51,7 +51,6 @@ test_data_path = './data/base_treinamento/test/'
 transform = v2.Compose([
     v2.Resize(img_size),
     v2.ToTensor(),
-    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
 # Cria o path para os logs do lightning

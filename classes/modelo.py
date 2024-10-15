@@ -9,6 +9,7 @@ class Modelo(pl.LightningModule):
     def __init__(self, num_class, learning_rate):
         super(Modelo, self).__init__()
 
+        # Salvar os hyperparametros
         self.save_hyperparameters()
 
 
@@ -43,7 +44,7 @@ class Modelo(pl.LightningModule):
         for name, param in self.model.named_parameters():
             if any(layer_name in name for layer_name in [
                 "vit.embeddings.patch_embeddings.projection",
-                "vit.encoder.layer.1s1.intermediate",
+                "vit.encoder.layer.11.intermediate",
                 "vit.encoder.layer.11.output",
                 "vit.encoder.layer.11.layernorm",
                 "vit.layernorm",
@@ -129,5 +130,5 @@ class Modelo(pl.LightningModule):
 
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=5e-5)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

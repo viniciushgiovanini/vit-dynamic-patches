@@ -1,9 +1,8 @@
 import random
 import numpy as np
+import cv2
 
 class DynamicPatches:
-  
-  
   #############################
   # Patches default 
   ############################# 
@@ -69,38 +68,119 @@ class DynamicPatches:
     coords_voltas.append((y,x))
     return coords_voltas
 
-def verificar_adj(self,matriz, x, y, lista_centros):
-    x, y = int(round(x)), int(round(y))
-    if len(lista_centros) == 0:
-        return False
-    else:
-        for each in lista_centros:
-            each_x, each_y = int(round(each[1])), int(round(each[0]))
-            ret = self.pixels_adj(matriz=matriz, x=each_x, y=each_y, n_voltas=8)
-            if (y, x) in ret:  
-                return True
-    return False
+  def verificar_adj(self,matriz, x, y, lista_centros):
+      x, y = int(round(x)), int(round(y))
+      if len(lista_centros) == 0:
+          return False
+      else:
+          for each in lista_centros:
+              each_x, each_y = int(round(each[1])), int(round(each[0]))
+              ret = self.pixels_adj(matriz=matriz, x=each_x, y=each_y, n_voltas=8)
+              if (y, x) in ret:  
+                  return True
+      return False
 
-def random_patchs_melhorados(self, image_height, image_width, patch_size, num_patches, img_PIL):
-    patch_height, patch_width = patch_size
+  def random_patchs_melhorados(self, image_height, image_width, patch_size, num_patches, img_PIL):
+      patch_height, patch_width = patch_size
+      
+      img_gray = img_PIL.convert('L')
+      img_mtx = np.array(img_gray)
+      
+      centers = []
+      
+      for _ in range(num_patches):
+          h = random.uniform(patch_height / 2, image_height - patch_height / 2)
+          w = random.uniform(patch_width / 2, image_width - patch_width / 2)
+          
+          
+          check = self.verificar_adj(img_mtx, w, h, centers)
+          
+          while check:
+              h = random.uniform(patch_height / 2, image_height - patch_height / 2)
+              w = random.uniform(patch_width / 2, image_width - patch_width / 2)
+              check = self.verificar_adj(img_mtx, w, h, centers)
+          
+          centers.append((h, w))
+      
+      return centers
     
-    img_gray = img_PIL.convert('L')
-    img_mtx = np.array(img_gray)
+    ####################################
+    # Patches segmentados
+    ####################################
     
-    centers = []
+  def grabcutextractcenters(self, path_img, tamanho_img=(224, 224)):
     
-    for _ in range(num_patches):
-        h = random.uniform(patch_height / 2, image_height - patch_height / 2)
-        w = random.uniform(patch_width / 2, image_width - patch_width / 2)
-        
-        
-        check = verificar_adj(img_mtx, w, h, centers)
-        
-        while check:
-            h = random.uniform(patch_height / 2, image_height - patch_height / 2)
-            w = random.uniform(patch_width / 2, image_width - patch_width / 2)
-            check = verificar_adj(img_mtx, w, h, centers)
-        
-        centers.append((h, w))
     
-    return centers
+    imagem = cv2.imread(path_img)
+    
+    imagem = cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB)
+    
+    _, mask, _ = self.remover_fundo_com_grabcut_recortado(imagem=imagem)
+    
+    
+    if self.is_image_black_percentage(mask):
+      image_height, image_width, _ = imagem.shape
+      centers = self.generate_patch_centers(image_height,image_width, patch_size=(16,16) )
+      return centers
+    else:
+      mask = cv2.resize(mask, tamanho_img)
+      
+      centers = []
+      altura, largura = mask.shape
+
+      for i in range(altura):  
+          for j in range(largura):
+              pixel = mask[i, j]
+              
+              if len(pixel.shape) == 0:
+                  if pixel == 255:  
+                        centers.append((i, j))
+              else:  
+                  if np.array_equal(pixel, [255, 255, 255]): 
+                        centers.append((i, j))
+      
+      random.shuffle(centers)
+      centers = centers[0:196]
+      return centers
+    
+  def remover_fundo_com_grabcut_recortado(self, imagem):
+      mascara = np.zeros(imagem.shape[:2], np.uint8)
+      backgroundModel = np.zeros((1, 65), np.float64)
+      foregroundModel = np.zeros((1, 65), np.float64)
+      altura, largura = imagem.shape[:2]
+      
+      x1 = 0
+      y1 = 0
+      x2 = largura - 1
+      y2 = altura - 1
+          
+      rectangle = (x1, y1, x2 - x1, y2 - y1)
+      
+      cv2.grabCut(imagem, mascara, rectangle,  
+              backgroundModel, foregroundModel,
+              3, cv2.GC_INIT_WITH_RECT)
+      
+      mascara_objeto = np.where((mascara == 2) | (mascara == 0), 0, 1).astype('uint8')
+      
+      imagem_sem_fundo = imagem * mascara_objeto[:, :, np.newaxis]
+      
+      img_recortada = imagem_sem_fundo[y1:y2, x1:x2]
+      
+      imagem_gray = cv2.cvtColor(img_recortada, cv2.COLOR_BGR2GRAY)
+      
+      _, mascara = cv2.threshold(imagem_gray, 10, 255, cv2.THRESH_BINARY)
+      
+      img_original_recortada = imagem[y1:y2, x1:x2]
+      
+      return img_recortada, mascara, img_original_recortada
+    
+  def is_image_black_percentage(self, image, threshold=0.9):
+      total_pixels = image.size
+      
+      if image.ndim == 2:
+          black_pixels = np.sum(image == 0)
+      elif image.ndim == 3: 
+          black_pixels = np.sum(np.all(image == 0, axis=-1))
+
+      black_percentage = black_pixels / total_pixels
+      return black_percentage >= threshold

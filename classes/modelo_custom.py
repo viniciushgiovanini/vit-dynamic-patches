@@ -198,19 +198,31 @@ class ModeloCustom(pl.LightningModule):
         logits = self.model(x).logits
         return logits
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch):
+        # Passa as img para os dispositivos GPU/CPU
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
+
+        # Obte os logits passando as imagens através do foward
         logits = self(images)
+
+        # Calcula a perda
         loss = self.criterion(logits, labels)
+
+        # Retorna a previsão do modelo
         _, predicted = torch.max(logits, 1)
+
+        # Realiza o calcula da acuracia
         accuracy = (predicted == labels).float().mean()
-       
+
+        # Realiza o registro das maetricas com CSVLogger
         self.log('train_loss', loss, prog_bar=True)
         self.log('train_accuracy', accuracy, prog_bar=True)
+
+        # Retorna o valor do loss
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch):
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
         logits = self(images)

@@ -39,8 +39,10 @@ class CustomPatchEmbedding(nn.Module):
         for b in range(batch_size):
 
             # Seleciona os centros de acordo com o metodo escolhido
+            # centers = DynamicPatches().generate_patch_centers(height, width, self.patch_size)
             # centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
-            centers = DynamicPatches().generate_patch_centers(height, width, self.patch_size)
+            centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
+            # centers = DynamicPatches().grabcutextractcenters(imagem_tensor=x[b], tamanho_img=(height, width), stride=self.patch_size[0])
             
             # converter as cordernadas do centers em indices inteiros  
             h_indices = [int(h) for h, _ in centers]
@@ -82,7 +84,9 @@ class CustomPatchEmbedding(nn.Module):
             ##################################
             # Visualização do Patch Tensor
             ##################################
-            # self.visualizer.visualize_patches_with_tensor(patches)
+            if self.is_visualizer:
+              # self.visualizer.visualize_patches_with_tensor(patches)
+              self.visualizer.visualize_patch_centers(x[b], centers, self.patch_size)              
             
             # Concatena os patches em um unico tensor
             patches = torch.stack(patches)  
@@ -101,11 +105,7 @@ class CustomPatchEmbedding(nn.Module):
         
         # combina todos os patches de todas as imagens no batch em um uico tensor tridimensional (batch_size, num_patches, embed_dim)
         all_patches = torch.stack(all_patches).to(device) 
-        
-        if self.is_visualizer:
-          for x, h, w in zip(x, all_h_indices, all_w_indices):
-            self.visualizer.visualize_patches_with_px(x.cpu(), h, w)
-        
+                        
         return all_patches
            
       
@@ -120,11 +120,8 @@ class ModeloCustom(pl.LightningModule):
         self.layer_dropout = nn.Dropout(0.4)
       
         # Carregar um modelo pré-treinado
-        base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
-        # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
-        # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
-        # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
+        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         
         self.model = ViTForImageClassification(config=base_model.config)
         self.model.vit = base_model
@@ -138,11 +135,12 @@ class ModeloCustom(pl.LightningModule):
         )
               
         print(self.model)
-        
         self.model.to(device)
         print("----------------------------------------------------------------")
-        
-         # Congela todos os parametros
+
+
+
+        # Congela todos os parametros
         for param in self.model.parameters():
             param.requires_grad = False
 
@@ -154,7 +152,7 @@ class ModeloCustom(pl.LightningModule):
         for name, param in self.model.named_parameters():
             if any(layer_name in name for layer_name in [
                 "vit.embeddings.patch_embeddings.projection",
-                "vit.encoder.layer.1s1.intermediate",
+                "vit.encoder.layer.11.intermediate",
                 "vit.encoder.layer.11.output",
                 "vit.encoder.layer.11.layernorm",
                 "vit.layernorm",
@@ -162,13 +160,6 @@ class ModeloCustom(pl.LightningModule):
             ]):
                 param.requires_grad = True
         
-        # Adicionando Regularização
-        # self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
-        # self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
-        # self.model.vit.encoder.layer[10].attention.output.dropout = self.layer_dropout
-        # self.model.vit.encoder.layer[11].attention.attention.dropout = self.layer_dropout
-
-        # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         self.model.classifier = nn.Sequential(
             nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
             nn.ReLU(),
@@ -178,12 +169,6 @@ class ModeloCustom(pl.LightningModule):
             self.layer_dropout,
             nn.Linear(self.model.config.hidden_size, self.num_class)
         )
-        # self.model.classifier = nn.Sequential(
-        #     nn.Linear(self.model.config.hidden_size, 16),
-        #     nn.ReLU(),
-        #     self.layer_dropout,
-        #     nn.Linear(16, self.num_class)
-        # )
 
         # Conferir as camadas que foram descongeladas
         for name, param in self.model.named_parameters():
@@ -193,12 +178,17 @@ class ModeloCustom(pl.LightningModule):
         self.criterion = nn.CrossEntropyLoss()
         print("----------------------------------------------------------------")
         print(self.model)
-   
+
+    # Passagem para frente (Backpropagation) retorna os valores finais do modelo não normalizados
+    # Retorna os logits para passar na funcao softmax
     def forward(self, x):
         logits = self.model(x).logits
         return logits
 
+    # Passo a passo do treinamento
+    # Batch -> Lote de img (32 img por batch)
     def training_step(self, batch):
+
         # Passa as img para os dispositivos GPU/CPU
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
@@ -222,6 +212,7 @@ class ModeloCustom(pl.LightningModule):
         # Retorna o valor do loss
         return loss
 
+    # Faz a mesma coisa do training_step só que na etapa de validação
     def validation_step(self, batch):
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
@@ -232,6 +223,7 @@ class ModeloCustom(pl.LightningModule):
         self.log('val_loss', loss, prog_bar=True)
         self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
 
+    # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=5e-5)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

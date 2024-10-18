@@ -37,7 +37,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 20
+num_epochs = 5
 learning_rate = 1e-5
 # total_steps = 50
 img_size = (224, 224)
@@ -93,11 +93,11 @@ val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 
 
 
-num_patch = ((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0]))
+num_patch = int(((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0])))
 print(f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")
 
-# model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
-model = Modelo(num_classes, learning_rate)
+model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
+# model = Modelo(num_classes, learning_rate)
 # model = ModeloBin(num_classes, learning_rate)
 
 ###########################

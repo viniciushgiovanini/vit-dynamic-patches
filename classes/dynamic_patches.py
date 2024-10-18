@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import cv2
+from PIL import Image
 
 class DynamicPatches:
   #############################
@@ -80,7 +81,12 @@ class DynamicPatches:
                   return True
       return False
 
-  def random_patchs_melhorados(self, image_height, image_width, patch_size, num_patches, img_PIL):
+  def random_patchs_melhorados(self, patch_size, num_patches, imagem_tensor):
+    
+      img_PIL = Image.fromarray((imagem_tensor.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8))
+
+      image_height, image_width = img_PIL.size
+      
       patch_height, patch_width = patch_size
       
       img_gray = img_PIL.convert('L')
@@ -102,20 +108,31 @@ class DynamicPatches:
           
           centers.append((h, w))
       
+      print(len(centers))
+      
       return centers
     
   ####################################
   # Patches segmentados
   ####################################
     
-  def grabcutextractcenters(self, path_img, tamanho_img=(224, 224), stride=16):
-  
-  
+  def grabcutextractcenters(self, imagem_tensor, tamanho_img=(224, 224), stride=16):
+      
+      
+    imagem = imagem_tensor.permute(1, 2, 0).cpu().numpy()
+    
+    
+    print(f"Shape da imagem {imagem.shape}")
+    print(f"Type da imagem {type(imagem)}")
+    
     qtd_patches = int((tamanho_img[0]/stride) * (tamanho_img[0]/stride))
     
-    imagem = cv2.imread(path_img)
+    if imagem.max() <= 1:
+        print("ZZZZZZZZZZZZZZZZZZ")
+        imagem = (imagem * 255).astype(np.uint8) 
     
-    imagem = cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB)
+    
+    imagem = cv2.cvtColor(imagem, cv2.COLOR_RGB2BGR)
     
     
     _, mask, _ = self.remover_fundo_com_grabcut_recortado(imagem=imagem)
@@ -129,9 +146,11 @@ class DynamicPatches:
       return centers_merge
     else:
       mask = cv2.resize(mask, tamanho_img)
-      
+    
       centers_randomicos = []
+      centers_randomicos_validos = []
       centers_stride = []
+      centers_stride_validos = []
       centers_merge = []
       altura, largura = mask.shape
 
@@ -145,6 +164,10 @@ class DynamicPatches:
               else:  
                   if np.array_equal(pixel, [255, 255, 255]): 
                         centers_randomicos.append((i, j))
+              
+              
+      centers_randomicos_validos = self.validar_centros(centros=centers_randomicos, patch_size=stride)
+      
       
       
       for i in range(0, altura, stride):
@@ -159,21 +182,24 @@ class DynamicPatches:
                         centers_stride.append((i, j))
                         
       
-      quantidade_patches_stride = len(centers_stride)
+      centers_stride_validos = self.validar_centros(centros=centers_stride, patch_size=stride)
+                        
+      
+      quantidade_patches_stride = len(centers_stride_validos)
       
       if quantidade_patches_stride < qtd_patches:
-        diferentes_lista1 = set(centers_randomicos) - set(centers_stride)
-        diferentes_lista2 = set(centers_stride) - set(centers_randomicos)
+        diferentes_lista1 = set(centers_randomicos_validos) - set(centers_stride_validos)
+        diferentes_lista2 = set(centers_stride_validos) - set(centers_randomicos_validos)
 
         resultado = list(diferentes_lista1) + list(diferentes_lista2)
         
         random.shuffle(resultado)
         qtd_faltante_patches = qtd_patches - quantidade_patches_stride
         
-        centers_merge = centers_stride.copy()
+        centers_merge = centers_stride_validos.copy()
         centers_merge.extend(resultado[0:qtd_faltante_patches])
       elif quantidade_patches_stride == qtd_patches:
-        centers_merge = centers_stride.copy()
+        centers_merge = centers_stride_validos.copy()
         
       return centers_merge
     
@@ -218,3 +244,13 @@ class DynamicPatches:
 
       black_percentage = black_pixels / total_pixels
       return black_percentage >= threshold
+    
+  def validar_centros(self, centros, patch_size, tamanho_img=(224,224)):
+    offset = patch_size // 2
+    centros_validos = []
+  
+    for (x, y) in centros:
+      if (x - offset >= 0 and x + offset - 1 < tamanho_img[0]) and (y - offset >= 0 and y + offset - 1 < tamanho_img[1]):
+          centros_validos.append((x, y))
+        
+    return centros_validos

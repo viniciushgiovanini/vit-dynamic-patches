@@ -5,6 +5,8 @@ import pytorch_lightning as pl
 from classes.patch_visualizer import PatchVisualizer
 from classes.dynamic_patches import DynamicPatches
 import matplotlib.pyplot as plt
+import pickle
+import hashlib
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -20,7 +22,27 @@ class CustomPatchEmbedding(nn.Module):
         self.projection = nn.Linear(patch_size[0] * patch_size[1] * input_size[0], embed_dim)
         # Lida com a visualizacao de patches
         self.visualizer = PatchVisualizer(patch_size)
+        
+        self.dict_center = self.load_dict()
+        
+        self.path_arquivo_centro = './data/centros_pre_salvos/randomico_melhorado.pkl'
     
+    def gerar_hash_tensor(self, tensor):
+      tensor_numpy = tensor.detach().cpu().numpy()
+      
+      # Converte o tensor em bytes
+      tensor_bytes = tensor_numpy.tobytes()
+      
+      # Gera o hash usando SHA-256
+      hash_unico = hashlib.sha256(tensor_bytes).hexdigest()
+      
+      return hash_unico
+    
+    def load_dict(self):
+      with open(self.path_arquivo_centro, 'rb') as f:
+        lista_centro_dict  = pickle.load(f)
+        
+      return lista_centro_dict
     
     def forward(self, x, **kwargs):
       
@@ -41,8 +63,14 @@ class CustomPatchEmbedding(nn.Module):
             # Seleciona os centros de acordo com o metodo escolhido
             # centers = DynamicPatches().generate_patch_centers(height, width, self.patch_size)
             # centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
-            centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
+            # centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
             # centers = DynamicPatches().grabcutextractcenters(imagem_tensor=x[b], tamanho_img=(height, width), stride=self.patch_size[0])
+            
+            hash_find = self.gerar_hash_tensor(x[b])
+            
+            centers = self.dict_center[hash_find]
+            
+            print(len(centers))
             
             # converter as cordernadas do centers em indices inteiros  
             h_indices = [int(h) for h, _ in centers]

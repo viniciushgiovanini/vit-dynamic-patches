@@ -168,12 +168,15 @@ class Validate:
       row_sums = conf_matrix.sum(axis=1, keepdims=True)  
       percent_matrix = conf_matrix / row_sums * 100
       plt.figure(figsize=(8, 6))
+      # sns.set(font_scale=1.5)
       sns.heatmap(percent_matrix, annot=True, fmt='.2f', cmap='Blues', cbar=False,
                 xticklabels=labels_name, yticklabels=labels_name)
+      # label_font = {'size':'18'}
       plt.xlabel('Predicted')
       plt.ylabel('True')
       plt.xticks(rotation=45)  
       plt.yticks(rotation=45) 
+      # title_font = {'size':'21'} 
       plt.title('Confusion Matrix')
       plt.show()
     if(type_plot == "scikit"):

@@ -104,28 +104,35 @@ class DynamicPatches:
       
       return centers
     
-    ####################################
-    # Patches segmentados
-    ####################################
+  ####################################
+  # Patches segmentados
+  ####################################
     
-  def grabcutextractcenters(self, path_img, tamanho_img=(224, 224)):
-    
+  def grabcutextractcenters(self, path_img, tamanho_img=(224, 224), stride=16):
+  
+  
+    qtd_patches = int((tamanho_img[0]/stride) * (tamanho_img[0]/stride))
     
     imagem = cv2.imread(path_img)
     
     imagem = cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB)
     
+    
     _, mask, _ = self.remover_fundo_com_grabcut_recortado(imagem=imagem)
     
-    
     if self.is_image_black_percentage(mask):
-      image_height, image_width, _ = imagem.shape
-      centers = self.generate_patch_centers(image_height,image_width, patch_size=(16,16) )
-      return centers
+      
+      altura, largura, _ = imagem.shape
+      
+      centers_merge = self.generate_patch_centers(altura, largura, stride)
+      
+      return centers_merge
     else:
       mask = cv2.resize(mask, tamanho_img)
       
-      centers = []
+      centers_randomicos = []
+      centers_stride = []
+      centers_merge = []
       altura, largura = mask.shape
 
       for i in range(altura):  
@@ -134,14 +141,41 @@ class DynamicPatches:
               
               if len(pixel.shape) == 0:
                   if pixel == 255:  
-                        centers.append((i, j))
+                        centers_randomicos.append((i, j))
               else:  
                   if np.array_equal(pixel, [255, 255, 255]): 
-                        centers.append((i, j))
+                        centers_randomicos.append((i, j))
       
-      random.shuffle(centers)
-      centers = centers[0:196]
-      return centers
+      
+      for i in range(0, altura, stride):
+            for j in range(0, largura, stride):
+                pixel = mask[i, j]
+                
+                if len(pixel.shape) == 0: 
+                    if pixel == 255:  
+                        centers_stride.append((i, j))
+                else:  
+                    if np.array_equal(pixel, [255, 255, 255]):
+                        centers_stride.append((i, j))
+                        
+      
+      quantidade_patches_stride = len(centers_stride)
+      
+      if quantidade_patches_stride < qtd_patches:
+        diferentes_lista1 = set(centers_randomicos) - set(centers_stride)
+        diferentes_lista2 = set(centers_stride) - set(centers_randomicos)
+
+        resultado = list(diferentes_lista1) + list(diferentes_lista2)
+        
+        random.shuffle(resultado)
+        qtd_faltante_patches = qtd_patches - quantidade_patches_stride
+        
+        centers_merge = centers_stride.copy()
+        centers_merge.extend(resultado[0:qtd_faltante_patches])
+      elif quantidade_patches_stride == qtd_patches:
+        centers_merge = centers_stride.copy()
+        
+      return centers_merge
     
   def remover_fundo_com_grabcut_recortado(self, imagem):
       mascara = np.zeros(imagem.shape[:2], np.uint8)

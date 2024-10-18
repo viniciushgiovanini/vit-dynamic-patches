@@ -169,7 +169,7 @@ resultados =pd.DataFrame({'epoch': epochs,
                               )
 
 # Save graphs
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(15, 3))
 plt.subplot(1, 2, 1)
 plt.plot(resultados['epoch'], resultados['train_accuracy'], label='Train Accuracy')
 plt.plot(resultados['epoch'], resultados['val_accuracy'], label='Validation Accuracy')
@@ -185,6 +185,7 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.title('Loss vs. Epoch')
 plt.legend()
+plt.subplots_adjust(bottom=0.25)
 plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 
 

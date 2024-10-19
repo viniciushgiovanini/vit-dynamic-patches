@@ -108,8 +108,6 @@ class DynamicPatches:
           
           centers.append((h, w))
       
-      print(len(centers))
-      
       return centers
     
   ####################################

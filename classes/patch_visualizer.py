@@ -49,7 +49,7 @@ class PatchVisualizer:
 
   
   
-  def visualize_patch_centers(self, image, centers, patch_size):
+  def visualize_patch_centers(self, image, centers, patch_size, img_name):
     image_np = image.permute(1, 2, 0).cpu().numpy()
     
     if image_np.max() > 1:
@@ -72,5 +72,6 @@ class PatchVisualizer:
     ax.set_xlim([0, image_np.shape[1]])
     ax.set_ylim([image_np.shape[0], 0])
     plt.axis('off')  
-    plt.savefig(f"figs/log_img/{self.gerar_string_aleatoria(10)}.jpg", bbox_inches='tight', pad_inches=0)
+    # plt.savefig(f"figs/log_img/{self.gerar_string_aleatoria(10)}.jpg", bbox_inches='tight', pad_inches=0)
+    plt.savefig(f"figs/log_img/{img_name}", bbox_inches='tight', pad_inches=0)
     plt.close(fig)

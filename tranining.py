@@ -15,6 +15,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
 from classes.modelo_custom import ModeloCustom
 from classes.modelo import Modelo
 from classes.modelo_binario import ModeloBin
+from classes.CustomImageFolder import CustomImageFolder
 
 
 # Identificar GPUs disponíveis
@@ -37,7 +38,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 5
+num_epochs = 1
 learning_rate = 1e-5
 # total_steps = 50
 img_size = (224, 224)
@@ -66,8 +67,10 @@ if not os.path.exists("./models/"):
 ##########################
 # Carregando Dados
 ##########################
-train_dataset = ImageFolder(root=train_data_path, transform=transform)
-test_dataset = ImageFolder(root=test_data_path, transform=transform)
+# train_dataset = ImageFolder(root=train_data_path, transform=transform)
+# test_dataset = ImageFolder(root=test_data_path, transform=transform)
+train_dataset = CustomImageFolder(root=train_data_path, transform=transform)
+test_dataset = CustomImageFolder(root=test_data_path, transform=transform)
 
 #########################
 # Lendo Classes
@@ -199,7 +202,8 @@ def calcular_acuracia_multiclasse(model, dataloader):
     correct = 0
     total = 0
     with torch.no_grad():
-        for images, labels in dataloader:
+        # for images, labels in dataloader:
+        for images, labels, _ in dataloader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
@@ -214,7 +218,8 @@ def calcular_acuracia_binario(model, dataloader):
     correct = 0
     total = 0
     with torch.no_grad():
-        for images, labels in dataloader:
+        # for images, labels in dataloader:
+        for images, labels, _ in dataloader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             probabilities = torch.sigmoid(outputs)

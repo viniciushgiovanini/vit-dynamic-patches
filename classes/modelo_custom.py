@@ -7,8 +7,11 @@ from classes.dynamic_patches import DynamicPatches
 import matplotlib.pyplot as plt
 import pickle
 import hashlib
+from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+image_names_dict = {}
 
 class CustomPatchEmbedding(nn.Module):
     def __init__(self, input_size, patch_size, embed_dim, num_patches, is_visualizer):
@@ -23,29 +26,18 @@ class CustomPatchEmbedding(nn.Module):
         # Lida com a visualizacao de patches
         self.visualizer = PatchVisualizer(patch_size)
         
-        self.dict_center = self.load_dict()
+        # self.dict_center = self.load_dict('./data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
         
-        self.path_arquivo_centro = './data/centros_pre_salvos/randomico_melhorado.pkl'
+        
     
-    def gerar_hash_tensor(self, tensor):
-      tensor_numpy = tensor.detach().cpu().numpy()
-      
-      # Converte o tensor em bytes
-      tensor_bytes = tensor_numpy.tobytes()
-      
-      # Gera o hash usando SHA-256
-      hash_unico = hashlib.sha256(tensor_bytes).hexdigest()
-      
-      return hash_unico
-    
-    def load_dict(self):
-      with open(self.path_arquivo_centro, 'rb') as f:
+    def load_dict(self, path):
+      with open(path, 'rb') as f:
         lista_centro_dict  = pickle.load(f)
         
       return lista_centro_dict
     
     def forward(self, x, **kwargs):
-      
+        
         # X -> Tensor de entrada (batch_size, channels, height, width)
 
         batch_size, channels, height, width = x.size()
@@ -57,21 +49,25 @@ class CustomPatchEmbedding(nn.Module):
         all_h_indices = []
         all_w_indices = []
 
+        
+        print("Iniciou um loop de batch\n")
+        print(f"Printando de dentro do CustomPatchEmbedding: {image_names_dict}")
+        
+        
+        
         # Loop sobre cada img do batch
         for b in range(batch_size):
-
             # Seleciona os centros de acordo com o metodo escolhido
             # centers = DynamicPatches().generate_patch_centers(height, width, self.patch_size)
-            # centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
+            centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
             # centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
             # centers = DynamicPatches().grabcutextractcenters(imagem_tensor=x[b], tamanho_img=(height, width), stride=self.patch_size[0])
+         
+            # centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
             
-            hash_find = self.gerar_hash_tensor(x[b])
             
-            centers = self.dict_center[hash_find]
-            
-            print(len(centers))
-            
+            # centers = self.dict_center[image_names_dict[b]]
+                    
             # converter as cordernadas do centers em indices inteiros  
             h_indices = [int(h) for h, _ in centers]
             w_indices = [int(w) for _, w in centers]
@@ -114,7 +110,7 @@ class CustomPatchEmbedding(nn.Module):
             ##################################
             if self.is_visualizer:
               # self.visualizer.visualize_patches_with_tensor(patches)
-              self.visualizer.visualize_patch_centers(x[b], centers, self.patch_size)              
+              self.visualizer.visualize_patch_centers(x[b], centers, self.patch_size, image_names_dict[b])              
             
             # Concatena os patches em um unico tensor
             patches = torch.stack(patches)  
@@ -128,6 +124,7 @@ class CustomPatchEmbedding(nn.Module):
             all_patches.append(patches)
             all_h_indices.append(h_indices)
             all_w_indices.append(w_indices)
+        
         
         # self.visualizer.save_patches_to_file(all_patches=all_patches, output_dir='/figs/batch_0/', batch_idx=0)
         
@@ -148,8 +145,7 @@ class ModeloCustom(pl.LightningModule):
         self.layer_dropout = nn.Dropout(0.4)
       
         # Carregar um modelo pré-treinado
-        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
+        base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
         
         self.model = ViTForImageClassification(config=base_model.config)
         self.model.vit = base_model
@@ -159,7 +155,7 @@ class ModeloCustom(pl.LightningModule):
             patch_size=patch_size,       
             embed_dim=self.model.config.hidden_size,
             num_patches=num_patch,
-            is_visualizer=False,
+            is_visualizer=True,
         )
               
         print(self.model)
@@ -218,11 +214,18 @@ class ModeloCustom(pl.LightningModule):
     def training_step(self, batch):
 
         # Passa as img para os dispositivos GPU/CPU
-        images, labels = batch
+        images, labels, img_names = batch
         images, labels = images.to(device), labels.to(device)
 
+        global image_names_dict
+        
+        image_names_dict.clear()
+        
+        for i, name in enumerate(img_names):
+          image_names_dict[i] = name
+        
         # Obte os logits passando as imagens através do foward
-        logits = self(images)
+        logits = self(images) 
 
         # Calcula a perda
         loss = self.criterion(logits, labels)
@@ -242,9 +245,17 @@ class ModeloCustom(pl.LightningModule):
 
     # Faz a mesma coisa do training_step só que na etapa de validação
     def validation_step(self, batch):
-        images, labels = batch
+        images, labels, img_names = batch
         images, labels = images.to(device), labels.to(device)
-        logits = self(images)
+        
+        global image_names_dict
+        
+        image_names_dict.clear()
+        
+        for i, name in enumerate(img_names):
+          image_names_dict[i] = name
+        
+        logits = self(images) 
         loss = self.criterion(logits, labels)
         _, predicted = torch.max(logits, 1)
         accuracy = (predicted == labels).float().mean()

@@ -38,7 +38,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 1
+num_epochs = 5
 learning_rate = 1e-5
 # total_steps = 50
 img_size = (224, 224)
@@ -99,7 +99,7 @@ val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 num_patch = int(((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0])))
 print(f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")
 
-model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
+model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size, batch_size)
 # model = Modelo(num_classes, learning_rate)
 # model = ModeloBin(num_classes, learning_rate)
 
@@ -196,6 +196,7 @@ plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 #          Calcula e Compara a acuracia do Modelo e da Callback
 # ############################################################################
 
+
 def calcular_acuracia_multiclasse(model, dataloader):
     model.to(device) 
     model.eval()
@@ -212,6 +213,22 @@ def calcular_acuracia_multiclasse(model, dataloader):
     return correct / total
 
 
+def calcular_acuracia_multiclasse_custom(model, dataloader):
+    model.to(device) 
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        # for images, labels in dataloader:
+        for images, labels, image_names in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(x=images, validation_mode=True, img_names_validation=image_names)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return correct / total
+  
+  
 def calcular_acuracia_binario(model, dataloader):
     model.to(device) 
     model.eval()
@@ -231,7 +248,7 @@ def calcular_acuracia_binario(model, dataloader):
 
 # Calcular a acurácia no conjunto de teste
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
-accuracy = calcular_acuracia_multiclasse(model, test_loader)
+accuracy = calcular_acuracia_multiclasse_custom(model, test_loader)
 print(f"Acurácia no conjunto de teste: {accuracy * 100:.2f}%")
 
 
@@ -242,5 +259,5 @@ model.load_state_dict(torch.load(best_model_path)['state_dict'])
 model.to(device)
 
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
-accuracy = calcular_acuracia_multiclasse(model, test_loader)
+accuracy = calcular_acuracia_multiclasse_custom(model, test_loader)
 print(f"Acurácia no conjunto de teste (Melhor ponto do modelo): {accuracy * 100:.2f}%")

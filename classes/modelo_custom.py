@@ -26,7 +26,7 @@ class CustomPatchEmbedding(nn.Module):
         # Lida com a visualizacao de patches
         self.visualizer = PatchVisualizer(patch_size)
         
-        # self.dict_center = self.load_dict('./data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
+        self.dict_center = self.load_dict('./data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
         
         
     
@@ -50,8 +50,8 @@ class CustomPatchEmbedding(nn.Module):
         all_w_indices = []
 
         
-        print("Iniciou um loop de batch\n")
-        print(f"Printando de dentro do CustomPatchEmbedding: {image_names_dict}")
+        # print("Iniciou um loop de batch\n")
+        # print(f"Printando de dentro do CustomPatchEmbedding: {image_names_dict}")
         
         
         
@@ -59,14 +59,18 @@ class CustomPatchEmbedding(nn.Module):
         for b in range(batch_size):
             # Seleciona os centros de acordo com o metodo escolhido
             # centers = DynamicPatches().generate_patch_centers(height, width, self.patch_size)
-            centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
+            # centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
             # centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
             # centers = DynamicPatches().grabcutextractcenters(imagem_tensor=x[b], tamanho_img=(height, width), stride=self.patch_size[0])
          
             # centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
             
-            
-            # centers = self.dict_center[image_names_dict[b]]
+            try:
+              centers = self.dict_center[image_names_dict[b]]
+              # print(f"Centro da imagem {image_names_dict[b]} encontrado com sucesso")
+            except:
+              print(f"Erro ao encontrar centro --> {image_names_dict[b]}")
+              
                     
             # converter as cordernadas do centers em indices inteiros  
             h_indices = [int(h) for h, _ in centers]
@@ -135,7 +139,7 @@ class CustomPatchEmbedding(nn.Module):
            
       
 class ModeloCustom(pl.LightningModule):
-    def __init__(self, num_class, learning_rate, num_patch, input_size, patch_size):
+    def __init__(self, num_class, learning_rate, num_patch, input_size, patch_size, batch_size):
         super(ModeloCustom, self).__init__()
         
         self.save_hyperparameters()
@@ -143,6 +147,7 @@ class ModeloCustom(pl.LightningModule):
         self.num_class = num_class
         self.learning_rate = learning_rate
         self.layer_dropout = nn.Dropout(0.4)
+        self.batch_size = batch_size
       
         # Carregar um modelo pré-treinado
         base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
@@ -205,9 +210,21 @@ class ModeloCustom(pl.LightningModule):
 
     # Passagem para frente (Backpropagation) retorna os valores finais do modelo não normalizados
     # Retorna os logits para passar na funcao softmax
-    def forward(self, x):
-        logits = self.model(x).logits
-        return logits
+    def forward(self, x, validation_mode = False, img_names_validation=None):
+
+        
+      if validation_mode:
+        # print("TESTANDO A GAMBIARRA")
+        # print(len(img_names_validation))
+        global image_names_dict
+      
+        image_names_dict.clear()
+        
+        for i, name in enumerate(img_names_validation):
+          image_names_dict[i] = name
+        
+      logits = self.model(x).logits
+      return logits
 
     # Passo a passo do treinamento
     # Batch -> Lote de img (32 img por batch)
@@ -237,8 +254,8 @@ class ModeloCustom(pl.LightningModule):
         accuracy = (predicted == labels).float().mean()
 
         # Realiza o registro das maetricas com CSVLogger
-        self.log('train_loss', loss, prog_bar=True)
-        self.log('train_accuracy', accuracy, prog_bar=True)
+        self.log('train_loss', loss, prog_bar=True,  batch_size=self.batch_size)
+        self.log('train_accuracy', accuracy, prog_bar=True,  batch_size=self.batch_size)
 
         # Retorna o valor do loss
         return loss
@@ -259,8 +276,8 @@ class ModeloCustom(pl.LightningModule):
         loss = self.criterion(logits, labels)
         _, predicted = torch.max(logits, 1)
         accuracy = (predicted == labels).float().mean()
-        self.log('val_loss', loss, prog_bar=True)
-        self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
+        self.log('val_loss', loss, prog_bar=True, batch_size=self.batch_size)
+        self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True, batch_size=self.batch_size)
 
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):

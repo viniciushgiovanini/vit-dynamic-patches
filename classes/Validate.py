@@ -18,7 +18,7 @@ import shap
 import random
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
-
+from classes.CustomImageFolder import CustomImageFolder
 
 class Validate:
   def __init__(self, num_class, learning_rate, model_name):
@@ -31,8 +31,7 @@ class Validate:
     elif model_name == "multiclass":
       self.model = Modelo(self.num_class, self.learning_rate)
     elif model_name == "custom":
-      self.model = ModeloCustom(self.num_class, self.learning_rate)
-      
+      self.model = ModeloCustom(num_class=self.num_class, learning_rate=self.learning_rate, num_patch=196, input_size=224, patch_size=(16,16), batch_size=32)
   
   def load_model_architecture(self, path_model, map_location= "cpu"):
     self.model = torch.load(path_model, map_location=map_location)
@@ -115,7 +114,6 @@ class Validate:
       transform = T.Compose([
           T.Resize((224, 224)),
           T.ToTensor(),
-          T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
       ])
 
       image_tensor = transform(image).unsqueeze(0)
@@ -137,12 +135,28 @@ class Validate:
           probabilities = torch.sigmoid(output)
 
           prediction = (probabilities > 0.5).int().item() 
+      elif(self.model_name == "custom"):
+        
+        image_name = file.split("/")[-1]
+        
+        with torch.no_grad():
+          # tupla_original = ()
+          # nova_tupla = None
+          # nova_tupla = tupla_original + (image_name,) 
+          output = self.model(x=image_tensor, validation_mode=True, img_names_validation=(image_name,))
+          
+          probabilities = torch.softmax(output, dim=1)
+          
+          prediction = torch.argmax(probabilities, dim=1).item()
+          
+          
       
       retorno = self._get_key_from_value(dicte=dicionario_labels, target_value=prediction)
       
       resultado[retorno] +=1
         
     return resultado
+  
   
   def _listar_images(self, path):
     all_image = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
@@ -343,10 +357,40 @@ class Validate:
     transform = T.Compose([
         T.Resize(image_size),
         T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  
     ])
     
     dataset = ImageFolder(root=root_path, transform=transform)
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     
     return data_loader
+  
+  def calculate_accuracy_custom(self, data_loader, device):
+    correct = 0
+    total = 0
+    
+    with torch.no_grad():  
+        for images, labels, img_names in data_loader:
+            print(img_names)
+            print(type(img_names))
+            images, labels = images.to(device), labels.to(device)
+            outputs = self.model(x=images, validation_mode=True, img_names_validation=img_names)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    
+    accuracy = 100 * correct / total
+    return accuracy
+  
+  def get_dataloader_from_directory_CustoImageFolder(self, root_path, batch_size=32, image_size=(224, 224)):
+    transform = T.Compose([
+        T.Resize(image_size),
+        T.ToTensor(),
+    ])
+    
+    dataset = CustomImageFolder(root=root_path, transform=transform)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    
+    return data_loader
+  
+  
+  

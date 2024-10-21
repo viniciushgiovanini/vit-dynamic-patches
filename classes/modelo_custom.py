@@ -6,8 +6,6 @@ from classes.patch_visualizer import PatchVisualizer
 from classes.dynamic_patches import DynamicPatches
 import matplotlib.pyplot as plt
 import pickle
-import hashlib
-from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -50,6 +48,9 @@ class CustomPatchEmbedding(nn.Module):
         all_w_indices = []
 
         
+        ################################################
+        #                   Print de Log               #
+        ################################################
         # print("Iniciou um loop de batch\n")
         # print(f"Printando de dentro do CustomPatchEmbedding: {image_names_dict}")
         
@@ -62,12 +63,10 @@ class CustomPatchEmbedding(nn.Module):
             # centers = DynamicPatches().generate_random_patch_centers(height, width, self.patch_size, self.num_patches)
             # centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
             # centers = DynamicPatches().grabcutextractcenters(imagem_tensor=x[b], tamanho_img=(height, width), stride=self.patch_size[0])
-         
             # centers = DynamicPatches().random_patchs_melhorados(self.patch_size, self.num_patches, x[b])
             
             try:
               centers = self.dict_center[image_names_dict[b]]
-              # print(f"Centro da imagem {image_names_dict[b]} encontrado com sucesso")
             except:
               print(f"Erro ao encontrar centro --> {image_names_dict[b]}")
               
@@ -104,7 +103,7 @@ class CustomPatchEmbedding(nn.Module):
             
             # se o numero patches for menor que o ncessário, prenche com tesnores vazios
             if len(patches) < self.num_patches:
-                print("AAAAAAAAAAAAAAAAAAAAA\n\n\n\n\n\n\n\n\n")
+                print("ERRO: Gerando patch preto\n\n\n\n\n\n\n\n\n")
                 missing_patches = self.num_patches - len(patches)
                 patches += [torch.zeros(channels, self.patch_size[0], self.patch_size[1], device=device)] * missing_patches
 
@@ -129,8 +128,6 @@ class CustomPatchEmbedding(nn.Module):
             all_h_indices.append(h_indices)
             all_w_indices.append(w_indices)
         
-        
-        # self.visualizer.save_patches_to_file(all_patches=all_patches, output_dir='/figs/batch_0/', batch_idx=0)
         
         # combina todos os patches de todas as imagens no batch em um uico tensor tridimensional (batch_size, num_patches, embed_dim)
         all_patches = torch.stack(all_patches).to(device) 
@@ -214,8 +211,6 @@ class ModeloCustom(pl.LightningModule):
 
         
       if validation_mode:
-        # print("TESTANDO A GAMBIARRA")
-        # print(len(img_names_validation))
         global image_names_dict
       
         image_names_dict.clear()

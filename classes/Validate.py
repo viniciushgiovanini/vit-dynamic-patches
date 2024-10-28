@@ -18,21 +18,24 @@ import shap
 import random
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
-
+from classes.CustomImageFolder import CustomImageFolder
 
 class Validate:
-  def __init__(self, num_class, learning_rate, model_name):
+  def __init__(self, num_class, learning_rate, model_name,  num_patch=196, input_size=224, patch_size=(16,16), batch_size=32):
     self.num_class = num_class
     self.learning_rate = learning_rate
     self.model_name = model_name
+    self.num_patch = num_patch
+    self.input_size = input_size
+    self.patch_size = patch_size
+    self.batch_size = batch_size
 
     if model_name == "binario":
       self.model = ModeloBin(self.num_class, self.learning_rate)
     elif model_name == "multiclass":
       self.model = Modelo(self.num_class, self.learning_rate)
     elif model_name == "custom":
-      self.model = ModeloCustom(self.num_class, self.learning_rate)
-      
+      self.model = ModeloCustom(num_class=self.num_class, learning_rate=self.learning_rate, num_patch=self.num_patch, input_size=self.input_size, patch_size=self.patch_size, batch_size=self.batch_size)
   
   def load_model_architecture(self, path_model, map_location= "cpu"):
     self.model = torch.load(path_model, map_location=map_location)
@@ -72,7 +75,6 @@ class Validate:
       transform = T.Compose([
           T.Resize((224, 224)),
           T.ToTensor(),
-          T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
       ])
 
       image_tensor = transform(image).unsqueeze(0) 
@@ -115,7 +117,6 @@ class Validate:
       transform = T.Compose([
           T.Resize((224, 224)),
           T.ToTensor(),
-          T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
       ])
 
       image_tensor = transform(image).unsqueeze(0)
@@ -137,12 +138,25 @@ class Validate:
           probabilities = torch.sigmoid(output)
 
           prediction = (probabilities > 0.5).int().item() 
+      elif(self.model_name == "custom"):
+        
+        image_name = file.split("/")[-1]
+        
+        with torch.no_grad():
+          output = self.model(x=image_tensor, validation_mode=True, img_names_validation=(image_name,))
+          
+          probabilities = torch.softmax(output, dim=1)
+          
+          prediction = torch.argmax(probabilities, dim=1).item()
+          
+          
       
       retorno = self._get_key_from_value(dicte=dicionario_labels, target_value=prediction)
       
       resultado[retorno] +=1
         
     return resultado
+  
   
   def _listar_images(self, path):
     all_image = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
@@ -168,12 +182,15 @@ class Validate:
       row_sums = conf_matrix.sum(axis=1, keepdims=True)  
       percent_matrix = conf_matrix / row_sums * 100
       plt.figure(figsize=(8, 6))
+      sns.set(font_scale=1.5)
       sns.heatmap(percent_matrix, annot=True, fmt='.2f', cmap='Blues', cbar=False,
                 xticklabels=labels_name, yticklabels=labels_name)
+      # label_font = {'size':'18'}
       plt.xlabel('Predicted')
       plt.ylabel('True')
       plt.xticks(rotation=45)  
       plt.yticks(rotation=45) 
+      # title_font = {'size':'21'} 
       plt.title('Confusion Matrix')
       plt.show()
     if(type_plot == "scikit"):
@@ -286,7 +303,6 @@ class Validate:
         transform = T.Compose([
           T.Resize((224, 224)),
           T.ToTensor(),
-          T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
 
         image_tensor = transform(image).unsqueeze(0)
@@ -340,10 +356,40 @@ class Validate:
     transform = T.Compose([
         T.Resize(image_size),
         T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  
     ])
     
     dataset = ImageFolder(root=root_path, transform=transform)
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     
     return data_loader
+  
+  def calculate_accuracy_custom(self, data_loader, device):
+    correct = 0
+    total = 0
+    
+    with torch.no_grad():  
+        for images, labels, img_names in data_loader:
+            # print(img_names)
+            # print(type(img_names))
+            images, labels = images.to(device), labels.to(device)
+            outputs = self.model(x=images, validation_mode=True, img_names_validation=img_names)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    
+    accuracy = 100 * correct / total
+    return accuracy
+  
+  def get_dataloader_from_directory_CustoImageFolder(self, root_path, batch_size=32, image_size=(224, 224)):
+    transform = T.Compose([
+        T.Resize(image_size),
+        T.ToTensor(),
+    ])
+    
+    dataset = CustomImageFolder(root=root_path, transform=transform)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    
+    return data_loader
+  
+  
+  

@@ -15,6 +15,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
 from classes.modelo_custom import ModeloCustom
 from classes.modelo import Modelo
 from classes.modelo_binario import ModeloBin
+from classes.CustomImageFolder import CustomImageFolder
 
 
 # Identificar GPUs disponíveis
@@ -37,9 +38,9 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 10
+num_epochs = 2
 learning_rate = 1e-5
-# total_steps = 50
+total_steps = 10
 img_size = (224, 224)
 patch_size = (16,16)
 
@@ -51,7 +52,6 @@ test_data_path = './data/base_treinamento/test/'
 transform = v2.Compose([
     v2.Resize(img_size),
     v2.ToTensor(),
-    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
 # Cria o path para os logs do lightning
@@ -65,10 +65,17 @@ if not os.path.exists("./models/"):
   
 
 ##########################
-# Carregando Dados
+# Carregando Dados NORMAL
 ##########################
-train_dataset = ImageFolder(root=train_data_path, transform=transform)
-test_dataset = ImageFolder(root=test_data_path, transform=transform)
+# train_dataset = ImageFolder(root=train_data_path, transform=transform)
+# test_dataset = ImageFolder(root=test_data_path, transform=transform)
+
+
+##########################
+# Carregando Dados CUSTOM
+##########################
+train_dataset = CustomImageFolder(root=train_data_path, transform=transform)
+test_dataset = CustomImageFolder(root=test_data_path, transform=transform)
 
 #########################
 # Lendo Classes
@@ -80,7 +87,7 @@ num_classes = len(train_dataset.classes)
 print(f"Numero de classes {num_classes}")
 
 # Seleciona as steps automaticamente
-total_steps = len(train_dataset) // batch_size
+# total_steps = len(train_dataset) // batch_size
 
 # Seleciona o Dispositivo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -94,11 +101,11 @@ val_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=11)
 
 
 
-num_patch = ((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0]))
+num_patch = int(((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0])))
 print(f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")
 
-# model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size)
-model = Modelo(num_classes, learning_rate)
+model = ModeloCustom(num_classes, learning_rate, num_patch, img_size[0], patch_size, batch_size)
+# model = Modelo(num_classes, learning_rate)
 # model = ModeloBin(num_classes, learning_rate)
 
 ###########################
@@ -170,7 +177,7 @@ resultados =pd.DataFrame({'epoch': epochs,
                               )
 
 # Save graphs
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(15, 3))
 plt.subplot(1, 2, 1)
 plt.plot(resultados['epoch'], resultados['train_accuracy'], label='Train Accuracy')
 plt.plot(resultados['epoch'], resultados['val_accuracy'], label='Validation Accuracy')
@@ -186,6 +193,7 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.title('Loss vs. Epoch')
 plt.legend()
+plt.subplots_adjust(bottom=0.25)
 plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 
 
@@ -193,13 +201,15 @@ plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 #          Calcula e Compara a acuracia do Modelo e da Callback
 # ############################################################################
 
+
 def calcular_acuracia_multiclasse(model, dataloader):
     model.to(device) 
     model.eval()
     correct = 0
     total = 0
     with torch.no_grad():
-        for images, labels in dataloader:
+        # for images, labels in dataloader:
+        for images, labels, _ in dataloader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
@@ -208,13 +218,16 @@ def calcular_acuracia_multiclasse(model, dataloader):
     return correct / total
 
 
+  
+  
 def calcular_acuracia_binario(model, dataloader):
     model.to(device) 
     model.eval()
     correct = 0
     total = 0
     with torch.no_grad():
-        for images, labels in dataloader:
+        # for images, labels in dataloader:
+        for images, labels, _ in dataloader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             probabilities = torch.sigmoid(outputs)
@@ -224,9 +237,25 @@ def calcular_acuracia_binario(model, dataloader):
     
     return correct / total
 
+################################################
+#         Calcular Acurácia Final CUSTOM       #
+################################################
+def calcular_acuracia_multiclasse_custom(model, dataloader):
+    model.to(device) 
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels, image_names in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(x=images, validation_mode=True, img_names_validation=image_names)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return correct / total
 # Calcular a acurácia no conjunto de teste
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
-accuracy = calcular_acuracia_multiclasse(model, test_loader)
+accuracy = calcular_acuracia_multiclasse_custom(model, test_loader)
 print(f"Acurácia no conjunto de teste: {accuracy * 100:.2f}%")
 
 
@@ -237,5 +266,5 @@ model.load_state_dict(torch.load(best_model_path)['state_dict'])
 model.to(device)
 
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
-accuracy = calcular_acuracia_multiclasse(model, test_loader)
+accuracy = calcular_acuracia_multiclasse_custom(model, test_loader)
 print(f"Acurácia no conjunto de teste (Melhor ponto do modelo): {accuracy * 100:.2f}%")

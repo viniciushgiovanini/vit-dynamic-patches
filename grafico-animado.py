@@ -56,6 +56,7 @@ def update_graph(frame):
       ax2.set_title('Loss vs. Epoch')
       ax2.legend()
 
+      plt.subplots_adjust(bottom=0.25)
       plt.draw()
       plt.pause(1)
     except:
@@ -64,7 +65,8 @@ def update_graph(frame):
 
 csv_file_path = './lightning_logs/csv_file/version_0/metrics.csv'
 
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(15, 3))
+# plt.figure(figsize=(10, 5))
 ax1 = plt.subplot(1, 2, 1)
 ax2 = plt.subplot(1, 2, 2)
 

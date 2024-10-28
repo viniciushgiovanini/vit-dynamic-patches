@@ -38,9 +38,9 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 5
+num_epochs = 2
 learning_rate = 1e-5
-# total_steps = 50
+total_steps = 10
 img_size = (224, 224)
 patch_size = (16,16)
 
@@ -65,10 +65,15 @@ if not os.path.exists("./models/"):
   
 
 ##########################
-# Carregando Dados
+# Carregando Dados NORMAL
 ##########################
 # train_dataset = ImageFolder(root=train_data_path, transform=transform)
 # test_dataset = ImageFolder(root=test_data_path, transform=transform)
+
+
+##########################
+# Carregando Dados CUSTOM
+##########################
 train_dataset = CustomImageFolder(root=train_data_path, transform=transform)
 test_dataset = CustomImageFolder(root=test_data_path, transform=transform)
 
@@ -82,7 +87,7 @@ num_classes = len(train_dataset.classes)
 print(f"Numero de classes {num_classes}")
 
 # Seleciona as steps automaticamente
-total_steps = len(train_dataset) // batch_size
+# total_steps = len(train_dataset) // batch_size
 
 # Seleciona o Dispositivo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -213,20 +218,6 @@ def calcular_acuracia_multiclasse(model, dataloader):
     return correct / total
 
 
-def calcular_acuracia_multiclasse_custom(model, dataloader):
-    model.to(device) 
-    model.eval()
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        # for images, labels in dataloader:
-        for images, labels, image_names in dataloader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(x=images, validation_mode=True, img_names_validation=image_names)
-            _, predicted = torch.max(outputs, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-    return correct / total
   
   
 def calcular_acuracia_binario(model, dataloader):
@@ -246,6 +237,22 @@ def calcular_acuracia_binario(model, dataloader):
     
     return correct / total
 
+################################################
+#         Calcular Acurácia Final CUSTOM       #
+################################################
+def calcular_acuracia_multiclasse_custom(model, dataloader):
+    model.to(device) 
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels, image_names in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(x=images, validation_mode=True, img_names_validation=image_names)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return correct / total
 # Calcular a acurácia no conjunto de teste
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=11)
 accuracy = calcular_acuracia_multiclasse_custom(model, test_loader)

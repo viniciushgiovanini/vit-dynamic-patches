@@ -24,7 +24,11 @@ class CustomPatchEmbedding(nn.Module):
         # Lida com a visualizacao de patches
         self.visualizer = PatchVisualizer(patch_size)
         
-        self.dict_center = self.load_dict('./data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
+        # Arquivo dos centros randomicos melhorados
+        # self.dict_center = self.load_dict('./data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
+        
+        # Arquivo dos centros segmentados
+        self.dict_center = self.load_dict('./data/centros_pre_salvos/segmentacao_dicionario.pkl')
         
         
     

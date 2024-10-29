@@ -16,7 +16,7 @@ import pickle
 class CustomConv2D(nn.Module):
     def __init__(self, input_channels, output_channels, patch_size):
         super(CustomConv2D, self).__init__()
-        self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=1, stride=1,)
+        self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=16, stride=16,)
         self.patch_size = patch_size
         
     
@@ -68,9 +68,9 @@ class CustomConv2D(nn.Module):
                     
                     # Extrair o patch
                     patch = x[b, :, start_h:end_h, start_w:end_w]
-                    # print(f'Shape antes da conv: {patch.shape}')
+                    print(f'Shape antes da conv: {patch.shape}')
                     output_patches = self.conv(patch)
-                    # print(f'Shape depois da conv: {output_patches.shape}')
+                    print(f'Shape depois da conv: {output_patches.shape}')
 
                     # fazendo o flatten
                     patches.append(output_patches.view(-1))

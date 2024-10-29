@@ -1,4 +1,3 @@
-from classes.modelo_custom import ModeloCustom
 from classes.modelo import Modelo
 from classes.modelo_binario import ModeloBin
 from classes.modelo_custom import ModeloCustom

@@ -26,6 +26,9 @@ class CustomPatchEmbedding(nn.Module):
         # Lida com a visualizacao de patches
         # self.visualizer = PatchVisualizer(patch_size)
         
+        
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        
         # Arquivo dos centros randomicos melhorados
         # self.dict_center = self.load_dict('./data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
         
@@ -133,8 +136,8 @@ class CustomPatchEmbedding(nn.Module):
             # faz o flatten
             patches = patches.flatten(start_dim=1)
             print(f"Shape apos a flatten: {patches.shape}")
-            print(f"Shape apos a flatten: {patches.shape}")
             
+            # flatten: torch.Size([196, 768])
             # projeta os patches para um espaço de maior dimensão
             patches = self.projection(patches)    
             print(f"Shape apos a projeção linear: {patches.shape}")
@@ -147,8 +150,8 @@ class CustomPatchEmbedding(nn.Module):
         
         # torch.Size([32, 196, 768])
         all_patches = torch.stack(all_patches)
-        print(f"Shape final: {all_patches.shape}")
-                        
+        print(f"Shape do stack: {all_patches.shape}")
+        
         return all_patches
 
 

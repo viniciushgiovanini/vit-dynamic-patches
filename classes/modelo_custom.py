@@ -24,6 +24,8 @@ class CustomPatchEmbedding(nn.Module):
         # Lida com a visualizacao de patches
         self.visualizer = PatchVisualizer(patch_size)
         
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        
         # Arquivo dos centros randomicos melhorados
         # self.dict_center = self.load_dict('./data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
         
@@ -104,6 +106,7 @@ class CustomPatchEmbedding(nn.Module):
                     print(f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}")
             
             
+            # print(f"Quantidade de patches extraidos: {len(patches)}")
             
             # se o numero patches for menor que o ncessário, prenche com tesnores vazios
             if len(patches) < self.num_patches:
@@ -111,6 +114,7 @@ class CustomPatchEmbedding(nn.Module):
                 missing_patches = self.num_patches - len(patches)
                 patches += [torch.zeros(channels, self.patch_size[0], self.patch_size[1], device=device)] * missing_patches
 
+            # print(f"Quantidade de patches extraidos: {len(patches)}")
             
             ##################################
             # Visualização do Patch Tensor
@@ -121,12 +125,15 @@ class CustomPatchEmbedding(nn.Module):
             
             # Concatena os patches em um unico tensor
             patches = torch.stack(patches)  
+            # print(f"Shape depois de empilhar patches: {patches.shape}")
 
             # faz o flatten
             patches = patches.flatten(start_dim=1)
+            # print(f"Shape depois do flattening patches: {patches.shape}")
             
             # projeta os patches para um espaço de maior dimensão
             patches = self.projection(patches)    
+            # print(f"Shape depois da projection patches: {patches.shape}")
             
             all_patches.append(patches)
             all_h_indices.append(h_indices)
@@ -135,7 +142,6 @@ class CustomPatchEmbedding(nn.Module):
         
         # combina todos os patches de todas as imagens no batch em um uico tensor tridimensional (batch_size, num_patches, embed_dim)
         all_patches = torch.stack(all_patches).to(device) 
-                        
         return all_patches
            
       

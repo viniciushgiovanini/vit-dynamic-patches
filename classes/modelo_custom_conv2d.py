@@ -19,6 +19,7 @@ class CustomPatchEmbedding(nn.Module):
         self.num_patches = num_patches
         self.is_visualizer = is_visualizer
         
+        
         # Projeta os patches para uma dimensão `embed_dim`
         # self.projection = nn.Linear(patch_size[0] * patch_size[1] * input_size[0], embed_dim)
         
@@ -26,8 +27,8 @@ class CustomPatchEmbedding(nn.Module):
         self.projection = nn.Conv2d(
             in_channels=input_size[0],   # Número de canais da imagem de entrada
             out_channels=embed_dim,       # Dimensão de saída do embedding
-            kernel_size=patch_size,       # Tamanho do patch
-            stride=patch_size             # Avanço igual ao tamanho do patch
+            kernel_size=patch_size[0],       # Tamanho do patch
+            stride=patch_size[0]             # Avanço igual ao tamanho do patch
         )
         
         

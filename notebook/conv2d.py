@@ -16,7 +16,7 @@ import pickle
 class CustomConv2D(nn.Module):
     def __init__(self, input_channels, output_channels, patch_size):
         super(CustomConv2D, self).__init__()
-        self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=16, stride=16,)
+        self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=patch_size[0], stride=patch_size[0],)
         self.patch_size = patch_size
         
     
@@ -68,7 +68,11 @@ class CustomConv2D(nn.Module):
                     
                     # Extrair o patch
                     patch = x[b, :, start_h:end_h, start_w:end_w]
+                    
+                    # torch.Size([3, 16, 16])
                     print(f'Shape antes da conv: {patch.shape}')
+                    
+                    # torch.Size([768, 1, 1])
                     output_patches = self.conv(patch)
                     print(f'Shape depois da conv: {output_patches.shape}')
 
@@ -82,14 +86,16 @@ class CustomConv2D(nn.Module):
             # each_image[image_name[b]] = torch.stack(patches)
             
             each_image[image_key] = torch.stack(patches)
-            
+            # torch.Size([196, 768])
             print(f"Shape do tensor da imagem {image_name[b]} é {each_image[image_name[b]].shape}")
+            # torch.Size([768])
             print(f"Shape de um patch: {patches[0].shape}")
+            # torch.Size([196, 768])
             print(f"Shape de todos os patches empilhados: {each_image[image_key].shape}")
             str("")
         
         
-        
+        # torch.Size([32, 196, 768])
         all_images = torch.stack(list(each_image.values()))  # Shape: [batch_size, num_patches, output_channels]
         print(f"Forma final das imagens: {all_images.shape}")
         return all_images

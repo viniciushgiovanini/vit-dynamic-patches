@@ -172,9 +172,9 @@ class Validate:
     labels_name.remove('Negative for intraepithelial lesion')
        
     if self.model_name == "multiclass":
-     labels_name.insert(4, "Negative")
+     labels_name.insert(4, "NFIL")
     if self.model_name == "binario":
-     labels_name.insert(0, "Negative")
+     labels_name.insert(0, "NFIL")
       
     if type_plot == "sns":
       conf_matrix = np.array(arrays)

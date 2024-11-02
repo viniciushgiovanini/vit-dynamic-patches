@@ -1,5 +1,7 @@
 # Dynamic Patches at Vision Transformers
 
+<a href="https://wakatime.com/badge/user/e5eaffb7-e096-4b18-a852-b6d7066b0044/project/75bd04cf-06b9-44bc-97b5-65029d479467"><img src="https://wakatime.com/badge/user/e5eaffb7-e096-4b18-a852-b6d7066b0044/project/75bd04cf-06b9-44bc-97b5-65029d479467.svg" alt="wakatime"></a>
+
 ## Instalando venv
 
 - Crie a virtual environment no dirétorio raiz.

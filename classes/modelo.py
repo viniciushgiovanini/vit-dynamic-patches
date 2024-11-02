@@ -18,8 +18,8 @@ class Modelo(pl.LightningModule):
         self.layer_dropout = nn.Dropout(0.4)
 
         # Carregar um modelo pré-treinado
-        base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        # base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
+        # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+        base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
         # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
@@ -43,18 +43,20 @@ class Modelo(pl.LightningModule):
         # Descongelar as camadas específicas
         for name, param in self.model.named_parameters():
             if any(layer_name in name for layer_name in [
-                "vit.embeddings.patch_embeddings.projection",
-                "vit.encoder.layer.11.intermediate",
-                "vit.encoder.layer.11.output",
-                "vit.encoder.layer.11.layernorm",
-                "vit.layernorm",
-                "vit.pooler"
+                "vit.embeddings.patch_embeddings.projection",  
+                "vit.encoder.layer.1.",
+                "vit.encoder.layer.2.",
+                "vit.encoder.layer.9.",
+                "vit.encoder.layer.10.",
+                "vit.encoder.layer.11.",
+                "vit.layernorm",  
+                "vit.pooler"  
             ]):
                 param.requires_grad = True
 
         # Adicionando Regularização
-        # self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
-        # self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
+        self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
+        self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
         # self.model.vit.encoder.layer[10].attention.output.dropout = self.layer_dropout
         # self.model.vit.encoder.layer[11].attention.attention.dropout = self.layer_dropout
 

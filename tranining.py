@@ -39,7 +39,7 @@ print ('Current cuda device ', torch.cuda.current_device())
 #########################
 start_time = time.time()
 batch_size = 32
-num_epochs = 2
+num_epochs = 60
 learning_rate = 1e-5
 # total_steps = 10
 img_size = (224, 224)
@@ -211,7 +211,7 @@ def calcular_acuracia_multiclasse(model, dataloader):
     total = 0
     with torch.no_grad():
         # for images, labels in dataloader:
-        for images, labels, _ in dataloader:
+        for images, labels in dataloader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)

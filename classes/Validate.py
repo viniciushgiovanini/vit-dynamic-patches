@@ -1,6 +1,8 @@
 from classes.modelo import Modelo
 from classes.modelo_binario import ModeloBin
 from classes.modelo_custom import ModeloCustom
+from classes.modelo_custom_conv2d import ModeloCustomConv2d
+
 import torch
 import os
 from PIL import Image
@@ -12,6 +14,7 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from tqdm import tqdm
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
+
 import cv2
 import shap
 import random
@@ -35,6 +38,8 @@ class Validate:
       self.model = Modelo(self.num_class, self.learning_rate)
     elif model_name == "custom":
       self.model = ModeloCustom(num_class=self.num_class, learning_rate=self.learning_rate, num_patch=self.num_patch, input_size=self.input_size, patch_size=self.patch_size, batch_size=self.batch_size)
+    elif model_name == "conv2d":
+      self.model = ModeloCustomConv2d(self.num_class, self.learning_rate, self.num_patch, self.input_size, self.patch_size, self.batch_size)
   
   def load_model_architecture(self, path_model, map_location= "cpu"):
     self.model = torch.load(path_model, map_location=map_location)
@@ -53,7 +58,9 @@ class Validate:
       self.model =  Modelo.load_from_checkpoint(path_model)
     elif self.model_name == "custom":
       self.model =  ModeloCustom.load_from_checkpoint(path_model)
-  
+    elif self.model_name == "conv2d":
+      self.model = ModeloCustomConv2d.load_from_checkpoint(path_model)
+    
   def _get_key_from_value(self, dicte, target_value):
     for key, value in dicte.items():
         if value == target_value:
@@ -116,7 +123,7 @@ class Validate:
       transform = T.Compose([
           T.Resize((224, 224)),
           T.ToTensor(),
-          # T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+          T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
       ])
 
       image_tensor = transform(image).unsqueeze(0)
@@ -138,7 +145,7 @@ class Validate:
           probabilities = torch.sigmoid(output)
 
           prediction = (probabilities > 0.5).int().item() 
-      elif(self.model_name == "custom"):
+      elif(self.model_name == "custom" or self.model_name == "conv2d"):
         
         image_name = file.split("/")[-1]
         
@@ -172,11 +179,12 @@ class Validate:
     
     labels_name.remove('Negative for intraepithelial lesion')
        
-    if self.model_name == "multiclass":
-     labels_name.insert(4, "NFIL")
+        
     if self.model_name == "binario":
      labels_name.insert(0, "NFIL")
-      
+    else:
+      labels_name.insert(4, "NFIL")
+        
     if type_plot == "sns":
       conf_matrix = np.array(arrays)
       row_sums = conf_matrix.sum(axis=1, keepdims=True)  
@@ -356,6 +364,7 @@ class Validate:
     transform = T.Compose([
         T.Resize(image_size),
         T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 
     ])
     
@@ -385,6 +394,8 @@ class Validate:
     transform = T.Compose([
         T.Resize(image_size),
         T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        
     ])
     
     dataset = CustomImageFolder(root=root_path, transform=transform)

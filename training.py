@@ -27,9 +27,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument("--model", type=str,
                     help="O nome do modelo: small16 | base16 | tiny16 | base32")
 
-parser.add_argument("--patchsize", type=int,
-                    help="Tamanho do Patch (Default: 16)")
-
 parser.add_argument("--epocas", type=int,
                     help="Quantidade de épocas")
 
@@ -69,14 +66,15 @@ img_size = (224, 224)
 patch_size = (16, 16)
 
 
-if args.epocas:
+if args.epocas is not None:
     num_epochs = args.epocas
-elif args.batchsize:
+if args.batchsize is not None:
     batch_size = args.batchsize
-elif args.learningrate:
+if args.learningrate is not None:
     learning_rate = args.learningrate
-elif args.patchsize:
-    patch_size = (args.patchsize, args.patchsize)
+
+if args.model == "base32":
+    patch_size = (32, 32)
 
 
 print(f"Epocas: {num_epochs}\nBatch Size: {batch_size}\nLR: {learning_rate}\nPatch Size: {patch_size}\n")

@@ -254,7 +254,6 @@ class ModeloCustom(pl.LightningModule):
         print(self.model)
 
     # Retorna os logits para passar na funcao softmax
-
     def forward(self, x, validation_mode=False, img_names_validation=None):
 
         if validation_mode:

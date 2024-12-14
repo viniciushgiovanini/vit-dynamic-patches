@@ -132,9 +132,6 @@ train_loader = DataLoader(
 val_loader = DataLoader(
     validation_dataset, batch_size=batch_size, num_workers=11)
 
-# Instancia o Modelo criado
-
-
 num_patch = int(((img_size[0]/patch_size[0]) * (img_size[0]/patch_size[0])))
 print(
     f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n")

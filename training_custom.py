@@ -153,8 +153,6 @@ print(
 ###########################
 # Selecionar tipo do modelo
 ###########################
-
-
 if args.projecao == "linear":
     model = ModeloCustom(num_classes, learning_rate, num_patch,
                          img_size[0], patch_size, batch_size, args)

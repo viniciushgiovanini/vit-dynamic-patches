@@ -108,19 +108,11 @@ class CustomPatchEmbedding(nn.Module):
 
                     patches.append(output_patches.view(-1))
 
-                    # patches.append(output_patches)
                 else:
                     print(
                         f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}")
-            # a = torch.stack(patches)
-            # each_image[image_name[b]] = torch.stack(patches)
 
             each_image[image_names_dict[b]] = torch.stack(patches)
-
-            # print(f"Shape do tensor da imagem {image_name[b]} é {each_image[image_name[b]].shape}")
-            # print(f"Shape de um patch: {patches[0].shape}")
-            # print(f"Shape de todos os patches empilhados: {each_image[image_key].shape}")
-            # str("")
 
         # Shape: [batch_size, num_patches, output_channels]
         all_images = torch.stack(list(each_image.values()))

@@ -5,13 +5,13 @@ import pytorch_lightning as pl
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class Modelo(pl.LightningModule):
-    def __init__(self, num_class, learning_rate):
+    def __init__(self, num_class, learning_rate, argumentos):
         super(Modelo, self).__init__()
 
         # Salvar os hyperparametros
         self.save_hyperparameters()
-
 
         self.num_class = num_class
         self.learning_rate = learning_rate
@@ -19,18 +19,30 @@ class Modelo(pl.LightningModule):
 
         # Carregar um modelo pré-treinado
         # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        base_model = ViTModel.from_pretrained('WinKawaks/vit-small-patch16-224')
+        base_model = ViTModel.from_pretrained(
+            'WinKawaks/vit-small-patch16-224')
         # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
+
+        if argumentos.model == "small16":
+            base_model = ViTModel.from_pretrained(
+                'WinKawaks/vit-small-patch16-224')
+        elif argumentos.model == "base16":
+            base_model = ViTModel.from_pretrained(
+                'google/vit-large-patch16-224')
+        elif argumentos.model == "tiny16":
+            base_model = ViTModel.from_pretrained(
+                'WinKawaks/vit-tiny-patch16-224')
+        elif argumentos.model == "base32":
+            base_model = ViTModel.from_pretrained(
+                'google/vit-base-patch32-224-in21k')
 
         self.model = ViTForImageClassification(config=base_model.config)
         self.model.vit = base_model
         print(self.model)
         self.model.to(device)
         print("----------------------------------------------------------------")
-
-
 
         # Congela todos os parametros
         for param in self.model.parameters():
@@ -43,14 +55,14 @@ class Modelo(pl.LightningModule):
         # Descongelar as camadas específicas
         for name, param in self.model.named_parameters():
             if any(layer_name in name for layer_name in [
-                "vit.embeddings.patch_embeddings.projection",  
+                "vit.embeddings.patch_embeddings.projection",
                 "vit.encoder.layer.1.",
                 "vit.encoder.layer.2.",
                 "vit.encoder.layer.9.",
                 "vit.encoder.layer.10.",
                 "vit.encoder.layer.11.",
-                "vit.layernorm",  
-                "vit.pooler"  
+                "vit.layernorm",
+                "vit.pooler"
             ]):
                 param.requires_grad = True
 
@@ -62,10 +74,12 @@ class Modelo(pl.LightningModule):
 
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.Linear(self.model.config.hidden_size,
+                      self.model.config.hidden_size),
             nn.ReLU(),
             self.layer_dropout,
-            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size),
+            nn.Linear(self.model.config.hidden_size,
+                      self.model.config.hidden_size),
             nn.ReLU(),
             self.layer_dropout,
             nn.Linear(self.model.config.hidden_size, self.num_class)

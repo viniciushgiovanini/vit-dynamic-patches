@@ -8,20 +8,17 @@
 
 - Este trabalho explora a aplicação de Vision Transformers (ViTs) na classificação de imagens de exames de Papanicolau, com o objetivo de identificar alterações citológicas. Foram realizados experimentos de _fine-tuning_ com os modelos Tiny, Small e Base, sendo os modelos Small e Base utilizados como _baseline_ para comparação. O foco da pesquisa está na modificação do módulo de extração de patches, que, no modelo padrão, utiliza projeção convolucional baseada em um grid fixo.
 
-<br>
-<center>
-<figure>
-<img src="doc/introducao2.drawio.png" alt="Arquitetura do ViT" width="600">
-  <figcaption>Entrada e Saída do Vision Transformer</figcaption>
-</figure>
-</center>
-<br>
+<p align="center">
+  <img src="doc/introducao2.drawio.png" alt="Arquitetura do ViT" width="600">
+  <br>
+  <em>Entrada e Saída do Vision Transformer</em>
+</p>
 
 - Neste projeto, propõe-se a substituição dessa abordagem tradicional por técnicas dinâmicas de extração de patches, combinando projeções lineares e convolucionais. Três métodos foram desenvolvidos e analisados: **Seleção Randômica (SR)**, **Randômica Aprimorada (RA)** e **Seleção por Segmentação (SS)**. Essas técnicas pretendem aprimorar a representatividade dos patches extraídos, explorando informações das imagens para melhorar a acurácia na classificação.
 
 ## Documentos
 
-- O **artigo** de desenvolvido desse trabalho pode ser encontrado clicando AQUI.
+- O **artigo** de desenvolvido desse trabalho pode ser encontrado clicando [AQUI](https://github.com/viniciushgiovanini/vit-dynamic-patches/blob/dev/doc/TCC2%20-%20Vinicius%20Henrique%20Giovanini%20-%20Ultima%20Versao%20Pos%20banca.pdf).
 
 ## Download do Dataset e Pré-Processamentos
 

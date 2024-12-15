@@ -70,6 +70,6 @@ plt.figure(figsize=(15, 3))
 ax1 = plt.subplot(1, 2, 1)
 ax2 = plt.subplot(1, 2, 2)
 
-ani = animation.FuncAnimation(plt.gcf(), update_graph, interval=5000)  # Atualiza a cada 5 segundos
+ani = animation.FuncAnimation(plt.gcf(), update_graph, interval=1000)  # Atualiza a cada 1 segundos
 
 plt.show()

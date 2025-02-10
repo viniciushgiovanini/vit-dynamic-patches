@@ -164,11 +164,11 @@ class CustomPatchEmbedding(nn.Module):
             ##################################
             # Visualização do Patch Tensor
             ##################################
-            if self.is_visualizer:
+            # if self.is_visualizer:
                 # self.visualizer.visualize_patches_with_tensor(patches)
 
-                self.visualizer.visualize_patch_centers(
-                    x[b], centers, self.patch_size, image_names_dict[b])
+                # self.visualizer.visualize_patch_centers(
+                #     x[b], centers, self.patch_size, image_names_dict[b])
 
             # Concatena os patches em um unico tensor
             patches = torch.stack(patches)

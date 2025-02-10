@@ -19,12 +19,13 @@ class CustomPatchEmbedding(nn.Module):
         self.embed_dim = embed_dim
         self.num_patches = num_patches
         self.is_visualizer = is_visualizer
+        self.centers_zigzag_espiral = []
 
         # Projeta os patches para uma dimensão `embed_dim`
         self.projection = nn.Linear(
             patch_size[0] * patch_size[1] * input_size[0], embed_dim)
         # Lida com a visualizacao de patches
-        # self.visualizer = PatchVisualizer(patch_size)
+        self.visualizer = PatchVisualizer(patch_size)
 
         #########################################################################
         # Descomente a linha que será carregado o centros de determinados métodos
@@ -35,19 +36,24 @@ class CustomPatchEmbedding(nn.Module):
         if argumentos.pde == "ra":
             self.dict_center = self.load_dict(
                 './data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Randomica Aprimorado")
         elif argumentos.pde == "ss":
             self.dict_center = self.load_dict(
                 './data/centros_pre_salvos/segmentacao_dicionario.pkl')
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Seleção por Segmentação")
         elif argumentos.pde == "grid":
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Grid")
         elif argumentos.pde == "sr":
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Seleção Randomica")
+        elif argumentos.pde == "zigzag":
+            self.centers_zigzag_espiral = self.load_dict(
+                "./data/centros_pre_salvos/zigzag_centers.pkl")
+            print("Abordagem selecionada: Seleção por ZigZag")
+        elif argumentos.pde == "espiral":
+            self.centers_zigzag_espiral = self.load_dict(
+                "./data/centros_pre_salvos/espiral_centers.pkl")
+            print("Abordagem selecionada: Seleção por Espiral")
+        self.abordagem_selecionada = argumentos.pde
         print('#####################################')
 
         # Arquivo dos centros randomicos melhorados
@@ -106,12 +112,22 @@ class CustomPatchEmbedding(nn.Module):
             #             Caso use aboradagem SS e RA                  #
             ############################################################
 
-            if self.abordagem_selecionada != "grid" and self.abordagem_selecionada != "sr":
+            if self.abordagem_selecionada != "grid" and self.abordagem_selecionada != "sr" and self.abordagem_selecionada != "zigzag" and self.abordagem_selecionada != "espiral":
                 try:
                     centers = self.dict_center[image_names_dict[b]]
                 except:
                     print(
                         f"Erro ao encontrar centro --> {image_names_dict[b]}")
+
+            ############################################################
+            #             Caso use aboradagem Zigzag e Espiral         #
+            ############################################################
+            if self.abordagem_selecionada == "espiral" or self.abordagem_selecionada == "zigzag":
+                try:
+                    centers = self.centers_zigzag_espiral
+                except:
+                    print(
+                        'Erro ao ler a lista de centros do metodo espiral ou zigzag !!!')
 
             h_indices = [int(h) for h, _ in centers]
             w_indices = [int(w) for _, w in centers]
@@ -148,9 +164,11 @@ class CustomPatchEmbedding(nn.Module):
             ##################################
             # Visualização do Patch Tensor
             ##################################
-            # if self.is_visualizer:
+            if self.is_visualizer:
                 # self.visualizer.visualize_patches_with_tensor(patches)
-                # self.visualizer.visualize_patch_centers(x[b], centers, self.patch_size, image_names_dict[b])
+
+                self.visualizer.visualize_patch_centers(
+                    x[b], centers, self.patch_size, image_names_dict[b])
 
             # Concatena os patches em um unico tensor
             patches = torch.stack(patches)
@@ -172,6 +190,7 @@ class CustomPatchEmbedding(nn.Module):
 
 
 class ModeloCustom(pl.LightningModule):
+
     def __init__(self, num_class, learning_rate, num_patch, input_size, patch_size, batch_size, argumentos):
         super(ModeloCustom, self).__init__()
 
@@ -225,13 +244,18 @@ class ModeloCustom(pl.LightningModule):
         for name, param in self.model.named_parameters():
             if any(layer_name in name for layer_name in [
                 "vit.embeddings.patch_embeddings.projection",
-                "vit.encoder.layer.11.intermediate",
-                "vit.encoder.layer.11.output",
-                "vit.encoder.layer.11.layernorm",
+                "vit.encoder.layer.1.",
+                "vit.encoder.layer.2.",
+                "vit.encoder.layer.9.",
+                "vit.encoder.layer.10.",
+                "vit.encoder.layer.11.",
                 "vit.layernorm",
                 "vit.pooler"
             ]):
                 param.requires_grad = True
+
+        self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
+        self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
 
         self.model.classifier = nn.Sequential(
             nn.Linear(self.model.config.hidden_size,
@@ -248,7 +272,6 @@ class ModeloCustom(pl.LightningModule):
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 print(f"Layer {name} is trainable")
-
         self.criterion = nn.CrossEntropyLoss()
         print("----------------------------------------------------------------")
         print(self.model)

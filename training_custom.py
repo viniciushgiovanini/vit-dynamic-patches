@@ -29,7 +29,7 @@ parser.add_argument("--model", required=True, type=str,
 
 
 parser.add_argument("--pde", required=True, type=str,
-                    help="Patch Dynamic Extraion - Tipo de Extração selecionada: grid | sr | ra | ss")
+                    help="Patch Dynamic Extration - Tipo de Extração selecionada: grid | sr | ra | ss | zigzag | espiral")
 
 
 parser.add_argument("--projecao", required=True, type=str,

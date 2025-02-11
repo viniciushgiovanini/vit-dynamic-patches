@@ -37,19 +37,23 @@ class CustomPatchEmbedding(nn.Module):
         if argumentos.pde == "ra":
             self.dict_center = self.load_dict(
                 './data/centros_pre_salvos/randomico_melhorado_identificador_por_imgname.pkl')
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Randomica Aprimorado")
         elif argumentos.pde == "ss":
             self.dict_center = self.load_dict(
                 './data/centros_pre_salvos/segmentacao_dicionario.pkl')
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Seleção por Segmentação")
         elif argumentos.pde == "grid":
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Grid")
         elif argumentos.pde == "sr":
-            self.abordagem_selecionada = argumentos.pde
             print("Abordagem selecionada: Seleção Randomica")
+        elif argumentos.pde == "zigzag":
+            self.centers_zigzag_espiral = self.load_dict(
+                "./data/centros_pre_salvos/zigzag_centers.pkl")
+            print("Abordagem selecionada: Seleção por ZigZag")
+        elif argumentos.pde == "espiral":
+            self.centers_zigzag_espiral = self.load_dict(
+                "./data/centros_pre_salvos/espiral_centers.pkl")
+        self.abordagem_selecionada = argumentos.pde
         print('#####################################')
 
         # Arquivo dos centros randomicos melhorados
@@ -72,6 +76,9 @@ class CustomPatchEmbedding(nn.Module):
 
         for b in range(batch_size):
 
+            ############################################################
+            #             Caso use aboradagem SR                       #
+            ############################################################
             if self.abordagem_selecionada == "grid":
                 centers = DynamicPatches().generate_patch_centers(height, width, self.patch_size)
 
@@ -79,12 +86,25 @@ class CustomPatchEmbedding(nn.Module):
                 centers = DynamicPatches().generate_random_patch_centers(
                     height, width, self.patch_size, self.num_patches)
 
-            if self.abordagem_selecionada != "grid" and self.abordagem_selecionada != "sr":
+            ############################################################
+            #             Caso use aboradagem SS e RA                  #
+            ############################################################
+            if self.abordagem_selecionada != "grid" and self.abordagem_selecionada != "sr" and self.abordagem_selecionada != "zigzag" and self.abordagem_selecionada != "espiral":
                 try:
                     centers = self.dict_center[image_names_dict[b]]
                 except:
                     print(
                         f"Erro ao encontrar centro --> {image_names_dict[b]}")
+
+            ############################################################
+            #             Caso use aboradagem Zigzag e Espiral         #
+            ############################################################
+            if self.abordagem_selecionada == "espiral" or self.abordagem_selecionada == "zigzag":
+                try:
+                    centers = self.centers_zigzag_espiral
+                except:
+                    print(
+                        'Erro ao ler a lista de centros do metodo espiral ou zigzag !!!')
 
             h_indices = [int(h) for h, _ in centers]
             w_indices = [int(w) for _, w in centers]

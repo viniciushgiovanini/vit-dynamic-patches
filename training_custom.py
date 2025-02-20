@@ -94,7 +94,8 @@ print(f"Epocas: {num_epochs}\nBatch Size: {batch_size}\nLR: {learning_rate}\nPat
 
 # Dataset path
 train_data_path = './data/base_treinamento/train/'
-validation_data_path = './data/base_treinamento/test/'
+
+validation_data_path = './data/base_treinamento/validation/'
 
 # Transformando a imagem test
 transform = v2.Compose([

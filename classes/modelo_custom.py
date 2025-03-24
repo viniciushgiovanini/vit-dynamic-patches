@@ -211,7 +211,7 @@ class ModeloCustom(pl.LightningModule):
                 'WinKawaks/vit-small-patch16-224')
         elif argumentos.model == "base16":
             base_model = ViTModel.from_pretrained(
-                'google/vit-large-patch16-224')
+                'google/vit-base-patch16-224')
         elif argumentos.model == "tiny16":
             base_model = ViTModel.from_pretrained(
                 'WinKawaks/vit-tiny-patch16-224')

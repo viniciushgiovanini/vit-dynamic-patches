@@ -29,7 +29,7 @@ class CustomPatchEmbedding(nn.Module):
             stride=patch_size[0]
         )
 
-        # self.visualizer = PatchVisualizer(patch_size)
+        self.visualizer = PatchVisualizer(patch_size)
 
         self.abordagem_selecionada = ""
 
@@ -51,6 +51,7 @@ class CustomPatchEmbedding(nn.Module):
                 "./data/centros_pre_salvos/zigzag_centers.pkl")
             print("Abordagem selecionada: Seleção por ZigZag")
         elif argumentos.pde == "espiral":
+            print("Abordagem selecionada: Seleção por Espiral")
             self.centers_zigzag_espiral = self.load_dict(
                 "./data/centros_pre_salvos/espiral_centers.pkl")
         self.abordagem_selecionada = argumentos.pde
@@ -161,7 +162,7 @@ class ModeloCustomConv2d(pl.LightningModule):
                 'WinKawaks/vit-small-patch16-224')
         elif argumentos.model == "base16":
             base_model = ViTModel.from_pretrained(
-                'google/vit-large-patch16-224')
+                'google/vit-base-patch16-224')
         elif argumentos.model == "tiny16":
             base_model = ViTModel.from_pretrained(
                 'WinKawaks/vit-tiny-patch16-224')

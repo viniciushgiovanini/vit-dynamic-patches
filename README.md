@@ -19,7 +19,7 @@
 ## Documentos
 
 - Pesquisa publicada no [Simpósio Brasileiro de Computação Aplicada à Saúde SBCAS 2025](https://sol.sbc.org.br/index.php/sbcas/article/view/35495)
-- A versão mais atual desse projeto está nesse arquivo [AQUI]()
+- A versão mais atual desse projeto está nesse arquivo [AQUI](https://github.com/viniciushgiovanini/vit-dynamic-patches/blob/master/doc/artigo_publicado_SBCAS2025.pdf)
 - O **artigo** de desenvolvido desse trabalho pode ser encontrado clicando [AQUI](https://github.com/viniciushgiovanini/vit-dynamic-patches/blob/dev/doc/TCC2%20-%20Vinicius%20Henrique%20Giovanini%20-%20Ultima%20Versao%20Pos%20banca.pdf).
 
 ## Download do Dataset e Pré-Processamentos

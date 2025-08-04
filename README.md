@@ -74,22 +74,35 @@
 
 ## Instalando venv
 
+- OBS: Existem 2 versões de `requirements.txt` a versão `requirements_win.txt` é para rodar códigos como o gráfico animado, na qual só funciona em ambiente windows, dessa forma recomenda-se criar a virtual env no windows. O arquivo `requirements_wsl.txt` consiste no pacotes que precisam ser instalado no root do wsl (Não funciona com virtual env).
+
+### Instalando Pacotes Linux
+
+- Instale os pacotes sem venv
+
+```shell
+pip install -r requirements_wsl.txt
+```
+
+### Instalando Pacotes Windows
+
 - Crie a virtual environment no dirétorio raiz.
 
 ```shelll
 python -m venv venv
 ```
 
-- Entre na venv (Linux)
+- Entre na venv (Windows Powershell)
 
 ```shell
-source venv/bin/activate
+cd venv/Scripts/
+./activate
 ```
 
-- Com ela ativada instale as dependências
+- Com ela ativada instale as dependências (windows)
 
 ```shell
-pip install -r requirements.txt
+pip install -r requirements_win.txt
 ```
 
 - Verifique a instalação

@@ -80,13 +80,6 @@
 python -m venv venv
 ```
 
-- Entre na venv (Windows Powershell)
-
-```shell
-cd venv/Scripts/
-./activate
-```
-
 - Entre na venv (Linux)
 
 ```shell

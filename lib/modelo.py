@@ -1,14 +1,20 @@
+from operator import itemgetter
+
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 from transformers import ViTForImageClassification, ViTModel
-import pytorch_lightning as pl
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Modelo(pl.LightningModule):
-    def __init__(self, num_class, learning_rate, argumentos):
+    def __init__(self, model_data: dict, argumentos):
         super(Modelo, self).__init__()
+
+        num_class, learning_rate = itemgetter("num_class", "learning_rate")(
+            model_data
+        )
 
         # Salvar os hyperparametros
         self.save_hyperparameters()
@@ -19,30 +25,33 @@ class Modelo(pl.LightningModule):
 
         # Carregar um modelo pré-treinado
         # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
-        base_model = ViTModel.from_pretrained(
-            'WinKawaks/vit-small-patch16-224')
+        base_model = ViTModel.from_pretrained("WinKawaks/vit-small-patch16-224")
         # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
         # base_model = ViTModel.from_pretrained('WinKawaks/vit-tiny-patch16-224')
         # base_model = ViTModel.from_pretrained('google/vit-base-patch32-224-in21k')
 
         if argumentos.model == "small16":
             base_model = ViTModel.from_pretrained(
-                'WinKawaks/vit-small-patch16-224')
+                "WinKawaks/vit-small-patch16-224"
+            )
         elif argumentos.model == "base16":
-            base_model = ViTModel.from_pretrained(
-                'google/vit-base-patch16-224')
+            base_model = ViTModel.from_pretrained("google/vit-base-patch16-224")
         elif argumentos.model == "tiny16":
             base_model = ViTModel.from_pretrained(
-                'WinKawaks/vit-tiny-patch16-224')
+                "WinKawaks/vit-tiny-patch16-224"
+            )
         elif argumentos.model == "base32":
             base_model = ViTModel.from_pretrained(
-                'google/vit-base-patch32-224-in21k')
+                "google/vit-base-patch32-224-in21k"
+            )
 
         self.model = ViTForImageClassification(config=base_model.config)
         self.model.vit = base_model
         print(self.model)
         self.model.to(device)
-        print("----------------------------------------------------------------")
+        print(
+            "----------------------------------------------------------------"
+        )
 
         # Congela todos os parametros
         for param in self.model.parameters():
@@ -54,16 +63,19 @@ class Modelo(pl.LightningModule):
 
         # Descongelar as camadas específicas
         for name, param in self.model.named_parameters():
-            if any(layer_name in name for layer_name in [
-                "vit.embeddings.patch_embeddings.projection",
-                "vit.encoder.layer.1.",
-                "vit.encoder.layer.2.",
-                "vit.encoder.layer.9.",
-                "vit.encoder.layer.10.",
-                "vit.encoder.layer.11.",
-                "vit.layernorm",
-                "vit.pooler"
-            ]):
+            if any(
+                layer_name in name
+                for layer_name in [
+                    "vit.embeddings.patch_embeddings.projection",
+                    "vit.encoder.layer.1.",
+                    "vit.encoder.layer.2.",
+                    "vit.encoder.layer.9.",
+                    "vit.encoder.layer.10.",
+                    "vit.encoder.layer.11.",
+                    "vit.layernorm",
+                    "vit.pooler",
+                ]
+            ):
                 param.requires_grad = True
 
         # Adicionando Regularização
@@ -74,15 +86,17 @@ class Modelo(pl.LightningModule):
 
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         self.model.classifier = nn.Sequential(
-            nn.Linear(self.model.config.hidden_size,
-                      self.model.config.hidden_size),
+            nn.Linear(
+                self.model.config.hidden_size, self.model.config.hidden_size
+            ),
             nn.ReLU(),
             self.layer_dropout,
-            nn.Linear(self.model.config.hidden_size,
-                      self.model.config.hidden_size),
+            nn.Linear(
+                self.model.config.hidden_size, self.model.config.hidden_size
+            ),
             nn.ReLU(),
             self.layer_dropout,
-            nn.Linear(self.model.config.hidden_size, self.num_class)
+            nn.Linear(self.model.config.hidden_size, self.num_class),
         )
         # self.model.classifier = nn.Sequential(
         #     nn.Linear(self.model.config.hidden_size, 16),
@@ -97,7 +111,9 @@ class Modelo(pl.LightningModule):
                 print(f"Layer {name} is trainable")
         # Criterio de Perda é o CrossEntropyLoss
         self.criterion = nn.CrossEntropyLoss()
-        print("----------------------------------------------------------------")
+        print(
+            "----------------------------------------------------------------"
+        )
         print(self.model)
 
     # Passagem para frente (Backpropagation) retorna os valores finais do modelo não normalizados
@@ -127,8 +143,8 @@ class Modelo(pl.LightningModule):
         accuracy = (predicted == labels).float().mean()
 
         # Realiza o registro das maetricas com CSVLogger
-        self.log('train_loss', loss, prog_bar=True)
-        self.log('train_accuracy', accuracy, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_accuracy", accuracy, prog_bar=True)
 
         # Retorna o valor do loss
         return loss
@@ -141,8 +157,8 @@ class Modelo(pl.LightningModule):
         loss = self.criterion(logits, labels)
         _, predicted = torch.max(logits, 1)
         accuracy = (predicted == labels).float().mean()
-        self.log('val_loss', loss, prog_bar=True)
-        self.log('val_accuracy', accuracy, on_epoch=True, prog_bar=True)
+        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_accuracy", accuracy, on_epoch=True, prog_bar=True)
 
     # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):

@@ -94,31 +94,28 @@ class CustomViTEmbeddings(nn.Module):
         embeddings = self.dropout(embeddings)
         return embeddings
 
-    # def reoorder_position_embbeddings(
-    #     model,
-    #     centers,
-    #     patch_size=16,
-    # ):
-    #     num_patches = model.embeddings.position_embeddings.shape[1] - 1
-    #     h = w = int(num_patches**0.5)
+    def reoorder_position_embbeddings(
+        self,
+        model,
+        centers_with_idx: list,
+        device=None,
+    ):
+        pos_embed = self.position_embeddings.data.clone()
+        cls_pos_embed = pos_embed[:, 0:1, :]
+        patch_pos_embed = pos_embed[:, 1:, :]
 
-    #     # indices = []
-    #     # for x, y in centers:
-    #     #     row = y // patch_size
-    #     #     col = x // patch_size
-    #     #     index = row * 14 + col
-    #     #     indices.append(index)
+        ordered_indices = [idx for idx, _ in centers_with_idx]
 
-    #     pos_embed = model.embeddings.position_embeddings.data.clone()
-    #     cls_pos_embed = pos_embed[:, 0:1, :]
-    #     patch_pos_embed = pos_embed[:, 1:, :]
+        indices_tensor = torch.tensor(
+            ordered_indices,
+            dtype=torch.long,
+            device=patch_pos_embed.device if device is None else device,
+        )
 
-    #     # indices_tensor = torch.tensor(
-    #     #     indices, dtype=torch.long, device=patch_pos_embed.device
-    #     # )
+        reordered_patches = patch_pos_embed[:, indices_tensor, :]
 
-    #     # patch_pos_embed = patch_pos_embed[:, indices_tensor, :]
-    #     # new_pos_embed = torch.cat([cls_pos_embed, patch_pos_embed], dim=1)
+        new_pos_embed = torch.cat([cls_pos_embed, reordered_patches], dim=1)
 
-    #     model.embeddings.position_embeddings.data.copy_(pos_embed)
-    #     return model
+        self.position_embeddings.data.copy_(new_pos_embed)
+
+        return model

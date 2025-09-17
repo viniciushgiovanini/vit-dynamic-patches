@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from transformers import ViTForImageClassification, ViTModel
 
+from lib.utils import load_dict
 from lib.VITEmbeddings import CustomViTEmbeddings
 from lib.ViTPatchEmbeddings import CustomVITPatchEmbeddings
 
@@ -79,6 +80,15 @@ class ModeloCustom(pl.LightningModule):
             self.model.vit.embeddings.patch_embeddings.projection.bias.data.copy_(
                 pretrained_conv_bias
             )
+
+        if argumentos.pde == "espiral_sem_sobre":
+            self.model.vit.embeddings.reoorder_position_embbeddings(
+                self.model.vit.embeddings,
+                load_dict(
+                    "./data/centros_pre_salvos/espiral_sem_sobrepoisicao_INDEX.pkl"
+                ),
+            )
+            str("")
 
         print(self.model)
         self.model.to(device)

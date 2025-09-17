@@ -342,9 +342,7 @@ class Validate:
 
         fig, axes = plt.subplots(num_images, 2, figsize=(10, num_images * 5))
 
-        target_layers = [
-            self.model.model.vit.embeddings.patch_embeddings.projection
-        ]
+        target_layers = [self.model.model.vit.encoder.layer[-1].attention.self]
         gradcam = GradCAM(model=self.model, target_layers=target_layers)
 
         for i, image_path in enumerate(image_paths):

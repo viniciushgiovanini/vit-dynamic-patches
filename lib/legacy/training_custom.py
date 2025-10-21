@@ -1,10 +1,12 @@
 import argparse
 import os
+import random
 import shutil
 import sys
 import time
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -16,10 +18,22 @@ from torchvision.datasets import ImageFolder
 from torchvision.transforms import v2
 
 from lib.CustomImageFolder import CustomImageFolder
-from lib.modelo import Modelo
-from lib.modelo_binario import ModeloBin
-from lib.modelo_custom import ModeloCustom
+
+# from lib.modelo_custom import ModeloCustom
 from lib.modelo_custom_conv2d import ModeloCustomConv2d
+
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.cuda.manual_seed(seed)
+torch.manual_seed(seed)  
+torch.cuda.manual_seed_all(seed)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+g = torch.Generator(device="cpu")
+g.manual_seed(seed)
 
 parser = argparse.ArgumentParser(
     description="Exemplo de comandos para rodar o ViT"
@@ -86,6 +100,12 @@ print("Active CUDA Device: GPU", torch.cuda.current_device())
 print("Available devices ", torch.cuda.device_count())
 print("Current cuda device ", torch.cuda.current_device())
 
+
+def seed_worker(worker_id):
+    worker_seed = seed + worker_id
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+    torch.manual_seed(worker_seed)
 
 #########################
 #      HYPERPARAMS
@@ -165,11 +185,10 @@ print(
 
 # Divisão do dataset em Batch, colocando shuffle, acelera o carregando dos dados com num_workers
 train_loader = DataLoader(
-    train_dataset, batch_size=batch_size, shuffle=True, num_workers=11
+    train_dataset, batch_size=batch_size, shuffle=True, num_workers=11, generator=g, worker_init_fn=seed_worker
 )
 val_loader = DataLoader(
-    validation_dataset, batch_size=batch_size, num_workers=11
-)
+    validation_dataset, batch_size=batch_size, num_workers=11)
 
 # Instancia o Modelo criado
 

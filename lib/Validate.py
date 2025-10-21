@@ -9,8 +9,9 @@ import shap
 import torch
 import torchvision.transforms as T
 from PIL import Image
-from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam import EigenCAM, GradCAM, ScoreCAM
 from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from sklearn.metrics import ConfusionMatrixDisplay
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
@@ -20,6 +21,26 @@ from lib.CustomImageFolder import CustomImageFolder
 from lib.modelo import Modelo
 from lib.modelo_custom import ModeloCustom
 from lib.utils import strategy_centers_patch
+
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.cuda.manual_seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+g = torch.Generator(device="cpu")
+g.manual_seed(seed)
+
+
+def seed_worker(worker_id):
+    worker_seed = seed + worker_id
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+    torch.manual_seed(worker_seed)
 
 
 class Validate:
@@ -41,7 +62,12 @@ class Validate:
         self.input_size = input_size
         self.patch_size = patch_size
         self.batch_size = batch_size
-        self.centers = strategy_centers_patch(argumentos.pde)
+
+        self.centers = (
+            strategy_centers_patch(argumentos.pde)
+            if "pde" in argumentos
+            else None
+        )
         self.device = device
 
         self.model_data = {
@@ -49,7 +75,7 @@ class Validate:
             "learning_rate": self.learning_rate,
         }
 
-        if self.model_name == "padrao":
+        if self.model_name == "default":
             self.model = Modelo(self.model_data, argumentos)
         elif self.model_name == "custom":
             self.model_data["num_patches"] = self.num_patch
@@ -65,19 +91,19 @@ class Validate:
                 argumentos=argumentos,
             )
 
-    def load_model_architecture(self, path_model, map_location="cpu"):
-        self.model = torch.load(path_model, map_location=map_location)
+    def load_model_architecture(self, path_model):
+        self.model = torch.load(path_model, map_location=self.device)
         self.model.eval()
 
-    def load_default_model(self, path_model, map_location="cpu"):
+    def load_default_model(self, path_model):
         self.model.load_state_dict(
-            torch.load(path_model, map_location=map_location)
+            torch.load(path_model, map_location=self.device)
         )
         self.model.eval()
 
     def load_checkpoint_model(self, path_model):
 
-        if self.model_name == "padrao":
+        if self.model_name == "default":
             self.model = Modelo.load_from_checkpoint(path_model)
         elif self.model_name == "custom":
             self.model = ModeloCustom.load_from_checkpoint(path_model)
@@ -127,7 +153,7 @@ class Validate:
 
             self.model.eval()
 
-            if self.model_name == "padrao":
+            if self.model_name == "default":
                 with torch.no_grad():
                     output = self.model(image_tensor)
 
@@ -192,7 +218,7 @@ class Validate:
 
             self.model.eval()
 
-            if self.model_name == "padrao":
+            if self.model_name == "default":
                 with torch.no_grad():
                     output = self.model(image_tensor)
 
@@ -277,7 +303,7 @@ class Validate:
             conf_matrix = np.array(arrays)
             row_sums = conf_matrix.sum(axis=1, keepdims=True)
             percent_matrix = conf_matrix / row_sums * 100
-            plt.figure(figsize=(8, 6))
+            plt.figure(figsize=(10, 8))
             disp = ConfusionMatrixDisplay(
                 confusion_matrix=percent_matrix, display_labels=labels_name
             )
@@ -323,6 +349,12 @@ class Validate:
             arrays=full_list, labels_name=all_folders, type_plot=type_plot
         )
 
+    def __reshape_transform(self, tensor, height=14, width=14):
+        result = tensor[:, 1:, :]
+        result = result.reshape(tensor.size(0), height, width, tensor.size(2))
+        result = result.permute(0, 3, 1, 2)
+        return result
+
     def run_grad_cam(self, image_dir, qtd=100):
         image_paths = [
             os.path.join(image_dir, img_name)
@@ -342,8 +374,14 @@ class Validate:
 
         fig, axes = plt.subplots(num_images, 2, figsize=(10, num_images * 5))
 
-        target_layers = [self.model.model.vit.encoder.layer[-1].attention.self]
-        gradcam = GradCAM(model=self.model, target_layers=target_layers)
+        target_layers = [
+            self.model.model.vit.encoder.layer[11].attention.output
+        ]
+        gradcam = EigenCAM(
+            model=self.model,
+            target_layers=target_layers,
+            reshape_transform=self.__reshape_transform,
+        )
 
         for i, image_path in enumerate(image_paths):
             rgb_img = cv2.imread(image_path)[:, :, ::-1]
@@ -404,7 +442,7 @@ class Validate:
 
             image_tensor = transform(image).unsqueeze(0)
 
-            if self.model_name == "padrao":
+            if self.model_name == "default":
                 with torch.no_grad():
                     output = self.model(image_tensor)
 
@@ -471,7 +509,13 @@ class Validate:
         )
 
         dataset = ImageFolder(root=root_path, transform=transform)
-        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        data_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            generator=g,
+            worker_init_fn=seed_worker,
+        )
 
         return data_loader
 
@@ -516,6 +560,12 @@ class Validate:
             centers_dict=self.centers,
             transform=transform,
         )
-        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        data_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            generator=g,
+            worker_init_fn=seed_worker,
+        )
 
         return data_loader

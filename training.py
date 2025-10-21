@@ -1,10 +1,12 @@
 import argparse
 import os
+import random
 import shutil
 import sys
 import time
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -20,6 +22,27 @@ from lib.CustomImageFolder import CustomImageFolder
 from lib.modelo import Modelo
 from lib.modelo_custom import ModeloCustom
 from lib.utils import strategy_centers_patch
+
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.cuda.manual_seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+g = torch.Generator(device="cpu")
+g.manual_seed(seed)
+
+
+def seed_worker(worker_id):
+    worker_seed = seed + worker_id
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+    torch.manual_seed(worker_seed)
+
 
 parser = argparse.ArgumentParser(
     description="Exemplo de comandos para rodar o ViT"
@@ -147,8 +170,8 @@ if not os.path.exists("./models/"):
 # Carregando Dados dependendo do model_type
 ###########################################
 
-
-centers = strategy_centers_patch(args.pde)
+if args.model_type == "custom":
+    centers = strategy_centers_patch(args.pde)
 
 
 if args.model_type == "custom":
@@ -187,14 +210,16 @@ print(
 
 # Divisão do dataset em Batch, colocando shuffle, acelera o carregando dos dados com num_workers
 train_loader = DataLoader(
-    train_dataset, batch_size=batch_size, shuffle=True, num_workers=11
+    train_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=11,
+    generator=g,
+    worker_init_fn=seed_worker,
 )
 val_loader = DataLoader(
     validation_dataset, batch_size=batch_size, num_workers=11
 )
-
-# Instancia o Modelo criado
-
 
 num_patch = int(((img_size[0] / patch_size[0]) * (img_size[0] / patch_size[0])))
 print(
@@ -333,11 +358,11 @@ acc_calc = AcuracyCalculate(device)
 
 
 # Calcular a acurácia no conjunto de teste
-test_loader = DataLoader(
+validation_loader = DataLoader(
     validation_dataset, batch_size=batch_size, shuffle=False, num_workers=11
 )
-accuracy = acc_calc.acc_calculate(model, test_loader, args.model_type)
-print(f"Acurácia no conjunto de teste: {accuracy * 100:.2f}%")
+accuracy = acc_calc.acc_calculate(model, validation_loader, args.model_type)
+print(f"Acurácia no conjunto de validação: {accuracy * 100:.2f}%")
 
 
 best_model_path = checkpoint_callback.best_model_path
@@ -346,10 +371,10 @@ model.load_state_dict(torch.load(best_model_path)["state_dict"])
 
 model.to(device)
 
-test_loader = DataLoader(
+validation_loader = DataLoader(
     validation_dataset, batch_size=batch_size, shuffle=False, num_workers=11
 )
-accuracy = acc_calc.acc_calculate(model, test_loader, args.model_type)
+accuracy = acc_calc.acc_calculate(model, validation_loader, args.model_type)
 print(
-    f"Acurácia no conjunto de teste (Melhor ponto do modelo): {accuracy * 100:.2f}%"
+    f"Acurácia no conjunto de validação (Melhor ponto do modelo): {accuracy * 100:.2f}%"
 )

@@ -16,54 +16,25 @@ class CustomViTEmbeddings(nn.Module):
     ) -> None:
         super().__init__()
 
-        CustomViTEmbeddings, DefaultEmbeddings = itemgetter(
-            "CustomViTEmbeddings", "DefaultEmbeddings"
+        CustomViTPatchEmbeddings, DefaultEmbeddings = itemgetter(
+            "CustomPatchEmbeddings", "DefaultEmbeddings"
         )(embeddings_dict)
 
         self.cls_token = DefaultEmbeddings.cls_token
 
-        self.mask_token = (
-            nn.Parameter(torch.zeros(1, 1, config.hidden_size))
-            if use_mask_token
-            else None
-        )
+        self.mask_token = DefaultEmbeddings.mask_token
 
-        self.patch_embeddings = CustomViTEmbeddings
+        self.patch_embeddings = CustomViTPatchEmbeddings
 
         self.position_embeddings = DefaultEmbeddings.position_embeddings
+
+        self.interpolate_pos_encoding = (
+            DefaultEmbeddings.interpolate_pos_encoding
+        )
 
         self.dropout = DefaultEmbeddings.dropout
 
         self.config = config
-
-    def interpolate_pos_encoding(
-        self, embeddings: torch.Tensor, height: int, width: int
-    ) -> torch.Tensor:
-        num_patches = embeddings.shape[1] - 1
-        num_positions = self.position_embeddings.shape[1] - 1
-        if num_patches == num_positions and height == width:
-            return self.position_embeddings
-        class_pos_embed = self.position_embeddings[:, 0]
-        patch_pos_embed = self.position_embeddings[:, 1:]
-        dim = embeddings.shape[-1]
-        h0 = height // self.config.patch_size
-        w0 = width // self.config.patch_size
-        h0, w0 = h0 + 0.1, w0 + 0.1
-        patch_pos_embed = patch_pos_embed.reshape(
-            1, int(math.sqrt(num_positions)), int(math.sqrt(num_positions)), dim
-        )
-        patch_pos_embed = patch_pos_embed.permute(0, 3, 1, 2)
-        patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed,
-            scale_factor=(
-                h0 / math.sqrt(num_positions),
-                w0 / math.sqrt(num_positions),
-            ),
-            mode="bicubic",
-            align_corners=False,
-        )
-        patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1)
 
     def forward(
         self,
@@ -86,7 +57,7 @@ class CustomViTEmbeddings(nn.Module):
 
         if interpolate_pos_encoding:
             embeddings = embeddings + self.interpolate_pos_encoding(
-                embeddings, height, width
+                height, width, embeddings
             )
         else:
             embeddings = embeddings + self.position_embeddings

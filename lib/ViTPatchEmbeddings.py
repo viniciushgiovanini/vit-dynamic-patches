@@ -60,7 +60,7 @@ class CustomVITPatchEmbeddings(nn.Module):
         if is_visualizer:
             self.visualizer = PatchVisualizer(patch_size)
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         img_name, centers_images = getattr(self, "current_centers_image", None)
         centers_images = centers_images.tolist()
 
@@ -110,16 +110,16 @@ class CustomVITPatchEmbeddings(nn.Module):
                 ):
 
                     patch = x[b, :, start_h:end_h, start_w:end_w]
-                    output_patches = self.projection(patch)
-
-                    patches.append(output_patches.view(-1))
+                    patches.append(patch)
 
                 else:
                     print(
                         f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}"
                     )
 
-            each_image[img_name[b]] = torch.stack(patches)
+            patches_tensor = torch.stack(patches)
+            embeddings = self.projection(patches_tensor)
+            each_image[img_name[b]] = embeddings.view(embeddings.size(0), -1)
 
         all_images = torch.stack(list(each_image.values()))
         return all_images
@@ -170,7 +170,7 @@ class CustomVITPatchEmbeddings(nn.Module):
                 ):
 
                     patch = x[b, :, start_h:end_h, start_w:end_w]
-                    patches.append(patch.to(device))
+                    patches.append(patch)
                 else:
                     print(
                         f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}"

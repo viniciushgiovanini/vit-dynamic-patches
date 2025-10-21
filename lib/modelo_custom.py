@@ -66,12 +66,15 @@ class ModeloCustom(pl.LightningModule):
 
         embeddings = {}
 
-        embeddings["CustomViTEmbeddings"] = CustomVITPatchEmbeddings(model_data)
+        embeddings["CustomPatchEmbeddings"] = CustomVITPatchEmbeddings(
+            model_data
+        )
         embeddings["DefaultEmbeddings"] = base_model.embeddings
         ViTEmbeddings = CustomViTEmbeddings(
             config=base_model.config, embeddings_dict=embeddings
         )
         self.model.vit.embeddings = ViTEmbeddings
+        # self.model.vit.embeddings.patch_embeddings = embeddings["CustomPatchEmbeddings"]
 
         if argumentos.projecao == "conv":
             self.model.vit.embeddings.patch_embeddings.projection.weight.data.copy_(
@@ -81,14 +84,18 @@ class ModeloCustom(pl.LightningModule):
                 pretrained_conv_bias
             )
 
-        if argumentos.pde == "espiral_sem_sobre":
+        if argumentos.pde == "espiral_position":
+
+            print("\n###################################\n")
+            print("\n REORDENANDO POSITION EMBEDDINS \n")
+            print("\n###################################\n")
+
             self.model.vit.embeddings.reoorder_position_embbeddings(
                 self.model.vit.embeddings,
                 load_dict(
                     "./data/centros_pre_salvos/espiral_sem_sobrepoisicao_INDEX.pkl"
                 ),
             )
-            str("")
 
         print(self.model)
         self.model.to(device)
@@ -107,6 +114,7 @@ class ModeloCustom(pl.LightningModule):
                 layer_name in name
                 for layer_name in [
                     "vit.embeddings.patch_embeddings.projection",
+                    # "vit.embeddings",
                     "vit.encoder.layer.1.",
                     "vit.encoder.layer.2.",
                     "vit.encoder.layer.9.",

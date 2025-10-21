@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 from transformers import ViTForImageClassification, ViTModel
 
-from lib.dynamic_patches import DynamicPatches
-from lib.patch_visualizer import PatchVisualizer
+# from lib.dynamic_patches import DynamicPatches
+# from lib.patch_visualizer import PatchVisualizer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -38,8 +38,8 @@ class CustomPatchEmbedding(nn.Module):
             kernel_size=patch_size[0],
             stride=patch_size[0],
         )
-
-        self.visualizer = PatchVisualizer(patch_size)
+        
+        # self.visualizer = PatchVisualizer(patch_size)
 
         self.abordagem_selecionada = ""
 
@@ -88,21 +88,25 @@ class CustomPatchEmbedding(nn.Module):
         batch_size, channels, height, width = x.size()
 
         each_image = {}
-
+        
+        
+        # print(f"Batch - CustomVIT: {image_names_dict}")
+        
+        
         for b in range(batch_size):
 
             ############################################################
             #             Caso use aboradagem SR                       #
             ############################################################
-            if self.abordagem_selecionada == "grid":
-                centers = DynamicPatches().generate_patch_centers(
-                    height, width, self.patch_size
-                )
+            # if self.abordagem_selecionada == "grid":
+            #     centers = DynamicPatches().generate_patch_centers(
+            #         height, width, self.patch_size
+            #     )
 
-            if self.abordagem_selecionada == "sr":
-                centers = DynamicPatches().generate_random_patch_centers(
-                    height, width, self.patch_size, self.num_patches
-                )
+            # if self.abordagem_selecionada == "sr":
+            #     centers = DynamicPatches().generate_random_patch_centers(
+            #         height, width, self.patch_size, self.num_patches
+            #     )
 
             ############################################################
             #             Caso use aboradagem SS e RA                  #
@@ -154,18 +158,17 @@ class CustomPatchEmbedding(nn.Module):
 
                     # Extrair o patch
                     patch = x[b, :, start_h:end_h, start_w:end_w]
-                    output_patches = self.projection(patch)
-
-                    patches.append(output_patches.view(-1))
+                    patches.append(patch)
 
                 else:
                     print(
                         f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}"
                     )
 
-            each_image[image_names_dict[b]] = torch.stack(patches)
+            patches_tensor = torch.stack(patches)
+            embeddings = self.projection(patches_tensor)
+            each_image[image_names_dict[b]] = embeddings.view(embeddings.size(0), -1)
 
-        # Shape: [batch_size, num_patches, output_channels]
         all_images = torch.stack(list(each_image.values()))
         return all_images
 
@@ -312,7 +315,7 @@ class ModeloCustomConv2d(pl.LightningModule):
 
         images, labels, img_names = batch
         images, labels = images.to(device), labels.to(device)
-
+        
         global image_names_dict
 
         image_names_dict.clear()

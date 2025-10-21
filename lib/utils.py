@@ -10,6 +10,7 @@ def load_dict(path):
 
 def strategy_centers_patch(pde):
     pde_value = None
+    print("\n###################################\n")
     if pde == "ra":
         print("Abordagem selecionada: Randomica Aprimorado")
         pde_value = load_dict(
@@ -32,7 +33,7 @@ def strategy_centers_patch(pde):
     elif pde == "espiral":
         print("Abordagem selecionada: Seleção por Espiral")
         pde_value = load_dict("./data/centros_pre_salvos/espiral_centers.pkl")
-    elif pde == "espiral_sem_sobre":
+    elif pde == "espiral_position":
         print("Abordagem selecionada: Seleção por Espiral - SEM SOBREPOSIÇÃO")
         pde_value = load_dict(
             "./data/centros_pre_salvos/espiral_sem_sobrepoisicao.pkl"
@@ -40,5 +41,5 @@ def strategy_centers_patch(pde):
 
     if pde_value == None and pde != "grid" and pde != "sr":
         raise Exception("PDE selecionada não existe !")
-
+    print("\n###################################\n")
     return pde_value

@@ -1,5 +1,6 @@
-from torchvision.datasets import ImageFolder
 import os
+
+from torchvision.datasets import ImageFolder
 
 
 class CustomImageFolder(ImageFolder):

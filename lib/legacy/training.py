@@ -1,12 +1,10 @@
 import argparse
 import os
-import random
 import shutil
 import sys
 import time
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -17,87 +15,37 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import v2
 
-from lib.AcuracyCalculate import AcuracyCalculate
 from lib.CustomImageFolder import CustomImageFolder
-from lib.modelo import Modelo
-from lib.modelo_custom import ModeloCustom
-from lib.utils import strategy_centers_patch
-
-seed = 42
-random.seed(seed)
-np.random.seed(seed)
-torch.cuda.manual_seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
-
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-
-g = torch.Generator(device="cpu")
-g.manual_seed(seed)
-
-
-def seed_worker(worker_id):
-    worker_seed = seed + worker_id
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
-    torch.manual_seed(worker_seed)
-
+from lib.legacy.modelo import Modelo
+from lib.legacy.modelo_binario import ModeloBin
+from lib.legacy.modelo_custom import ModeloCustom
+from lib.legacy.modelo_custom_conv2d import ModeloCustomConv2d
 
 parser = argparse.ArgumentParser(
     description="Exemplo de comandos para rodar o ViT"
 )
 
-parser.add_argument(
-    "--model_type",
-    required=True,
-    choices=["custom", "default"],
-    help="Modelo default ou custom: custom | default",
-)
 
 parser.add_argument(
     "--model",
-    required=True,
     type=str,
     help="O nome do modelo: small16 | base16 | tiny16 | base32",
 )
 
-parser.add_argument(
-    "--patchsize", type=int, help="Tamanho do Patch (Default: 16)"
-)
 parser.add_argument("--epocas", type=int, help="Quantidade de épocas")
+
 parser.add_argument(
-    "--learningrate", type=float, help="Taxa de aprendizado (Default: 1e-5)"
+    "--learningrate",
+    type=float,
+    help="Valor float para a taxa de aprendizado: (Default: 1e-5)",
 )
+
 parser.add_argument(
     "--batchsize", type=int, help="Tamanho do batch (Default: 32)"
-)
-parser.add_argument(
-    "--pde",
-    type=str,
-    help="Patch Dynamic Extraction: grid | sr | ra | ss | zigzag | espiral",
-)
-parser.add_argument(
-    "--projecao", type=str, help="Selecionar o tipo de projeção: conv | linear"
 )
 
 args = parser.parse_args()
 
-# ----------------------
-# Validação condicional
-# ----------------------
-if args.model_type == "custom":
-    if not args.pde or not args.projecao or not args.patchsize:
-        parser.error(
-            "--pde, --projecao e --patchsize são obrigatórios quando --model_type=custom"
-        )
-
-
-if args.model_type == "default":
-    if args.pde or args.projecao or args.patchsize:
-        parser.error(
-            "--pde, --projecao e patchsize não podem ser passados no --model_type=default"
-        )
 
 # Identificar GPUs disponíveis
 devices = find_usable_cuda_devices()
@@ -134,8 +82,9 @@ if args.batchsize is not None:
     batch_size = args.batchsize
 if args.learningrate is not None:
     learning_rate = args.learningrate
-if args.patchsize is not None:
-    patch_size = (args.patchsize, args.patchsize)
+
+if args.model == "base32":
+    patch_size = (32, 32)
 
 
 print(
@@ -145,7 +94,6 @@ print(
 
 # Dataset path
 train_data_path = "./data/base_treinamento/train/"
-
 validation_data_path = "./data/base_treinamento/validation/"
 
 # Transformando a imagem test
@@ -166,30 +114,14 @@ if os.path.exists("./models/"):
 if not os.path.exists("./models/"):
     os.mkdir("./models/")
 
-###########################################
-# Carregando Dados dependendo do model_type
-###########################################
 
-if args.model_type == "custom":
-    centers = strategy_centers_patch(args.pde)
+##########################
+# Carregando Dados NORMAL
+##########################
+train_dataset = ImageFolder(root=train_data_path, transform=transform)
+validation_dataset = ImageFolder(root=validation_data_path, transform=transform)
 
 
-if args.model_type == "custom":
-    train_dataset = CustomImageFolder(
-        root=train_data_path,
-        transform=transform,
-        centers_dict=centers,
-    )
-    validation_dataset = CustomImageFolder(
-        root=validation_data_path,
-        transform=transform,
-        centers_dict=centers,
-    )
-elif args.model_type == "default":
-    train_dataset = ImageFolder(root=train_data_path, transform=transform)
-    validation_dataset = ImageFolder(
-        root=validation_data_path, transform=transform
-    )
 #########################
 # Lendo Classes
 #########################
@@ -210,12 +142,7 @@ print(
 
 # Divisão do dataset em Batch, colocando shuffle, acelera o carregando dos dados com num_workers
 train_loader = DataLoader(
-    train_dataset,
-    batch_size=batch_size,
-    shuffle=True,
-    num_workers=11,
-    generator=g,
-    worker_init_fn=seed_worker,
+    train_dataset, batch_size=batch_size, shuffle=True, num_workers=11
 )
 val_loader = DataLoader(
     validation_dataset, batch_size=batch_size, num_workers=11
@@ -226,29 +153,7 @@ print(
     f"Numero de patches: {num_patch}\nTamanho da Imagem: {img_size}\nPatch_Size: {patch_size}\n"
 )
 
-model_data = {
-    "num_class": num_classes,
-    "learning_rate": learning_rate,
-}
-
-
-if args.model_type == "custom":
-    model_data["num_patches"] = num_patch
-    model_data["input_size"] = img_size
-    model_data["patch_size"] = patch_size
-    model_data["batch_size"] = batch_size
-    model_data["is_visualizer"] = False
-    model_data["abordagem_selecionada"] = args.pde
-    model_data["projection_type"] = args.projecao
-
-
-###################
-# Selecionar modelo
-###################
-if args.model_type == "default":
-    model = Modelo(model_data, args)
-elif args.model_type == "custom":
-    model = ModeloCustom(model_data, args)
+model = Modelo(num_classes, learning_rate, args)
 
 ###########################
 # Cria Logger para Metricas
@@ -351,18 +256,51 @@ plt.subplots_adjust(bottom=0.25)
 plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 
 
-################################################
-#         Calcular Acurácia Final CUSTOM       #
-################################################
-acc_calc = AcuracyCalculate(device)
+# ############################################################################
+#          Calcula e Compara a acuracia do Modelo e da Callback
+# ############################################################################
+
+
+def calcular_acuracia_multiclasse(model, dataloader):
+    model.to(device)
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        # for images, labels in dataloader:
+        for images, labels in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return correct / total
+
+
+def calcular_acuracia_binario(model, dataloader):
+    model.to(device)
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        # for images, labels in dataloader:
+        for images, labels, _ in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            probabilities = torch.sigmoid(outputs)
+            predicted = (probabilities > 0.5).int()
+            total += labels.size(0)
+            correct += (predicted.squeeze() == labels).sum().item()
+
+    return correct / total
 
 
 # Calcular a acurácia no conjunto de teste
-validation_loader = DataLoader(
+test_loader = DataLoader(
     validation_dataset, batch_size=batch_size, shuffle=False, num_workers=11
 )
-accuracy = acc_calc.acc_calculate(model, validation_loader, args.model_type)
-print(f"Acurácia no conjunto de validação: {accuracy * 100:.2f}%")
+accuracy = calcular_acuracia_multiclasse(model, test_loader)
+print(f"Acurácia no conjunto de validacao: {accuracy * 100:.2f}%")
 
 
 best_model_path = checkpoint_callback.best_model_path
@@ -371,10 +309,10 @@ model.load_state_dict(torch.load(best_model_path)["state_dict"])
 
 model.to(device)
 
-validation_loader = DataLoader(
+test_loader = DataLoader(
     validation_dataset, batch_size=batch_size, shuffle=False, num_workers=11
 )
-accuracy = acc_calc.acc_calculate(model, validation_loader, args.model_type)
+accuracy = calcular_acuracia_multiclasse(model, test_loader)
 print(
-    f"Acurácia no conjunto de validação (Melhor ponto do modelo): {accuracy * 100:.2f}%"
+    f"Acurácia no conjunto de validacao (Melhor ponto do modelo): {accuracy * 100:.2f}%"
 )

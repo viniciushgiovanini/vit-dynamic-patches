@@ -99,7 +99,6 @@ if args.model_type == "default":
             "--pde, --projecao e patchsize não podem ser passados no --model_type=default"
         )
 
-# Identificar GPUs disponíveis
 devices = find_usable_cuda_devices()
 print("Dispositivos CUDA disponíveis:", devices)
 
@@ -125,7 +124,9 @@ num_epochs = 60
 learning_rate = 1e-5
 # total_steps = 10
 img_size = (224, 224)
+
 patch_size = (16, 16)
+patch_qtd = (img_size[0] / patch_size[0]) ** 2
 
 
 if args.epocas is not None:
@@ -139,16 +140,14 @@ if args.patchsize is not None:
 
 
 print(
-    f"Epocas: {num_epochs}\nBatch Size: {batch_size}\nLR: {learning_rate}\nPatch Size: {patch_size}\n"
+    f"Epocas: {num_epochs}\nBatch Size: {batch_size}\nLR: {learning_rate}\nPatch Size: {patch_size}\nQuantidade de Patches: {patch_qtd}\nImage Size: {img_size}\n"
 )
 
 
-# Dataset path
 train_data_path = "./data/base_treinamento/train/"
 
 validation_data_path = "./data/base_treinamento/validation/"
 
-# Transformando a imagem test
 transform = v2.Compose(
     [
         v2.Resize(img_size),
@@ -157,7 +156,6 @@ transform = v2.Compose(
     ]
 )
 
-# Cria o path para os logs do lightning
 if os.path.exists("./lightning_logs/"):
     shutil.rmtree("./lightning_logs/")
 if os.path.exists("./models/"):
@@ -199,10 +197,8 @@ print(class_to_idx)
 num_classes = len(train_dataset.classes)
 print(f"Numero de classes {num_classes}")
 
-# Seleciona as steps automaticamente
 total_steps = len(train_dataset) // batch_size
 
-# Seleciona o Dispositivo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(
     f"\n\n Device ---> {device} and Current Device --> {torch.cuda.current_device()}\n\n"
@@ -229,13 +225,14 @@ print(
 model_data = {
     "num_class": num_classes,
     "learning_rate": learning_rate,
+    "input_size": img_size,
+    "num_patches": num_patch,
+    "patch_size": patch_size,
 }
 
 
 if args.model_type == "custom":
     model_data["num_patches"] = num_patch
-    model_data["input_size"] = img_size
-    model_data["patch_size"] = patch_size
     model_data["batch_size"] = batch_size
     model_data["is_visualizer"] = False
     model_data["abordagem_selecionada"] = args.pde
@@ -326,7 +323,6 @@ resultados = pd.DataFrame(
     },
 )
 
-# Save graphs
 plt.figure(figsize=(15, 3))
 plt.subplot(1, 2, 1)
 plt.plot(
@@ -357,7 +353,6 @@ plt.savefig("./graph/loss_and_accuracy_pytorch.jpg")
 acc_calc = AcuracyCalculate(device)
 
 
-# Calcular a acurácia no conjunto de teste
 validation_loader = DataLoader(
     validation_dataset, batch_size=batch_size, shuffle=False, num_workers=11
 )

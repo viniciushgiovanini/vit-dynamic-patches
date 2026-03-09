@@ -1,3 +1,4 @@
+import argparse
 import os
 import random
 
@@ -7,6 +8,7 @@ import numpy as np
 import seaborn as sns
 import shap
 import torch
+import torch.serialization
 import torchvision.transforms as T
 from PIL import Image
 from pytorch_grad_cam import EigenCAM, GradCAM, ScoreCAM
@@ -34,6 +36,8 @@ torch.backends.cudnn.benchmark = False
 
 g = torch.Generator(device="cpu")
 g.manual_seed(seed)
+
+torch.serialization.add_safe_globals([argparse.Namespace])
 
 
 def seed_worker(worker_id):
@@ -102,7 +106,6 @@ class Validate:
         self.model.eval()
 
     def load_checkpoint_model(self, path_model):
-
         if self.model_name == "default":
             self.model = Modelo.load_from_checkpoint(path_model)
         elif self.model_name == "custom":

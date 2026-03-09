@@ -1,3 +1,4 @@
+import math
 from operator import itemgetter
 
 import pytorch_lightning as pl
@@ -12,18 +13,17 @@ class Modelo(pl.LightningModule):
     def __init__(self, model_data: dict, argumentos):
         super(Modelo, self).__init__()
 
-        num_class, learning_rate = itemgetter("num_class", "learning_rate")(
-            model_data
-        )
+        (num_class, learning_rate) = itemgetter(
+            "num_class",
+            "learning_rate",
+        )(model_data)
 
-        # Salvar os hyperparametros
         self.save_hyperparameters()
 
         self.num_class = num_class
         self.learning_rate = learning_rate
-        self.layer_dropout = nn.Dropout(0.4)
+        # self.layer_dropout = nn.Dropout(0.4)
 
-        # Carregar um modelo pré-treinado
         # base_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
         base_model = ViTModel.from_pretrained("WinKawaks/vit-small-patch16-224")
         # base_model = ViTModel.from_pretrained('google/vit-large-patch16-224')
@@ -53,49 +53,33 @@ class Modelo(pl.LightningModule):
             "----------------------------------------------------------------"
         )
 
-        # Congela todos os parametros
-        for param in self.model.parameters():
-            param.requires_grad = False
+        # for param in self.model.parameters():
+        #     param.requires_grad = False
 
-        # Descongela somente o de classificação
-        for param in self.model.classifier.parameters():
-            param.requires_grad = True
+        # for param in self.model.classifier.parameters():
+        #     param.requires_grad = True
 
-        # Descongelar as camadas específicas
-        for name, param in self.model.named_parameters():
-            if any(
-                layer_name in name
-                for layer_name in [
-                    "vit.embeddings.patch_embeddings.projection",
-                    "vit.encoder.layer.1.",
-                    "vit.encoder.layer.2.",
-                    "vit.encoder.layer.9.",
-                    "vit.encoder.layer.10.",
-                    "vit.encoder.layer.11.",
-                    "vit.layernorm",
-                    "vit.pooler",
-                ]
-            ):
-                param.requires_grad = True
+        # for name, param in self.model.named_parameters():
+        #     if any(
+        #         layer_name in name
+        #         for layer_name in [
+        #             "vit.embeddings",
+        #             "vit.encoder.layer.8.",
+        #             "vit.encoder.layer.9.",
+        #             "vit.encoder.layer.10.",
+        #             "vit.encoder.layer.11.",
+        #             "vit.head",
+        #         ]
+        #     ):
+        #         param.requires_grad = True
 
-        # Adicionando Regularização
-        self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
-        self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[1].output.dropout = self.layer_dropout
+        # self.model.vit.encoder.layer[2].output.dropout = self.layer_dropout
         # self.model.vit.encoder.layer[10].attention.output.dropout = self.layer_dropout
         # self.model.vit.encoder.layer[11].attention.attention.dropout = self.layer_dropout
 
         # self.model.classifier = torch.nn.Linear(base_model.config.hidden_size, self.num_class)
         self.model.classifier = nn.Sequential(
-            nn.Linear(
-                self.model.config.hidden_size, self.model.config.hidden_size
-            ),
-            nn.ReLU(),
-            self.layer_dropout,
-            nn.Linear(
-                self.model.config.hidden_size, self.model.config.hidden_size
-            ),
-            nn.ReLU(),
-            self.layer_dropout,
             nn.Linear(self.model.config.hidden_size, self.num_class),
         )
         # self.model.classifier = nn.Sequential(
@@ -105,11 +89,10 @@ class Modelo(pl.LightningModule):
         #     nn.Linear(16, self.num_class)
         # )
 
-        # Conferir as camadas que foram descongeladas
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 print(f"Layer {name} is trainable")
-        # Criterio de Perda é o CrossEntropyLoss
+
         self.criterion = nn.CrossEntropyLoss()
         print(
             "----------------------------------------------------------------"
@@ -119,37 +102,31 @@ class Modelo(pl.LightningModule):
     # Passagem para frente (Backpropagation) retorna os valores finais do modelo não normalizados
     # Retorna os logits para passar na funcao softmax
     def forward(self, x):
-        logits = self.model(x).logits
+        logits = self.model(x, interpolate_pos_encoding=False).logits
         return logits
 
-    # Passo a passo do treinamento
     # Batch -> Lote de img (32 img por batch)
     def training_step(self, batch):
 
-        # Passa as img para os dispositivos GPU/CPU
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
 
-        # Obte os logits passando as imagens através do foward
         logits = self(images)
 
-        # Calcula a perda
         loss = self.criterion(logits, labels)
 
-        # Retorna a previsão do modelo
         _, predicted = torch.max(logits, 1)
 
-        # Realiza o calcula da acuracia
         accuracy = (predicted == labels).float().mean()
 
-        # Realiza o registro das maetricas com CSVLogger
+        lr = self.optimizers().param_groups[0]["lr"]
+
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_accuracy", accuracy, prog_bar=True)
+        self.log("lr", lr, prog_bar=True)
 
-        # Retorna o valor do loss
         return loss
 
-    # Faz a mesma coisa do training_step só que na etapa de validação
     def validation_step(self, batch):
         images, labels = batch
         images, labels = images.to(device), labels.to(device)
@@ -160,7 +137,25 @@ class Modelo(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=True)
         self.log("val_accuracy", accuracy, on_epoch=True, prog_bar=True)
 
-    # Configura o otimizador que é o adam com Learning Rate que passa no (Traning_multiclass)
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.learning_rate,
+            momentum=0.9,
+            # weight_decay=1e-3,
+        )
+
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=self.trainer.max_epochs,
+            eta_min=0.0,
+        )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }

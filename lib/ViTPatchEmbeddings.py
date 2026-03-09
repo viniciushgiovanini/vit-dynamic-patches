@@ -1,13 +1,9 @@
-import pickle
 from operator import itemgetter
 
-import matplotlib.pyplot as plt
-import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from transformers import ViTForImageClassification, ViTModel
+import torch.nn.functional as F
 
-from lib.dynamic_patches import DynamicPatches
 from lib.patch_visualizer import PatchVisualizer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,12 +32,17 @@ class CustomVITPatchEmbeddings(nn.Module):
         )(
             model_data
         )
+        self.input_size = input_size
         self.patch_size = patch_size
         self.embed_dim = embed_dim
         self.num_patches = num_patches
         self.is_visualizer = is_visualizer
         self.abordagem_selecionada = abordagem_selecionada
-        self.patch_generator = DynamicPatches()
+
+        # self.shift_pixels = 1
+        self.spt = SPTBlock(input_size[0], shift_k=1, mode="4way")
+        # self.spt = SPTBlock(input_size[0], shift_k=8, mode="8way")
+        # self.spt = SPTPreConv(input_size[0], shift_k=1, mode="4way")
 
         if projection_type == "linear":
             self.projection = nn.Linear(
@@ -64,147 +65,199 @@ class CustomVITPatchEmbeddings(nn.Module):
         img_name, centers_images = getattr(self, "current_centers_image", None)
         centers_images = centers_images.tolist()
 
-        if isinstance(self.projection, nn.Linear):
-            return self.default_extract(x, img_name, centers_images)
-        else:
-            return self.convolutional_strategy(x, img_name, centers_images)
+        # x = self.shifted_patch_tokenization(x, shift_pixels=self.shift_pixels)
+        x = self.spt(x)
 
-    def convolutional_strategy(self, x, img_name: dict, centers: list):
-        batch_size, channels, height, width = x.size()
+        return self.patch_extract(x, img_name=img_name, centers=centers_images)
+
+    def _extract_patches_from_centers(self, x: torch.Tensor, centers_list):
+        B, C, H, W = x.shape
+        ph, pw = self.patch_size
+
+        N = self.num_patches
+        centers_tensor = torch.zeros(
+            (B, N, 2), dtype=torch.long, device=x.device
+        )
+
+        for b in range(B):
+            centers_b = centers_list[b]
+            chosen = centers_b[:N]
+            centers_tensor[b] = torch.tensor(
+                chosen, dtype=torch.long, device=x.device
+            )
+
+        centers_h = centers_tensor[..., 0]
+        centers_w = centers_tensor[..., 1]
+
+        dh = torch.arange(ph, device=x.device, dtype=torch.long) - (ph // 2)
+        dw = torch.arange(pw, device=x.device, dtype=torch.long) - (pw // 2)
+
+        grid_h = centers_h.unsqueeze(-1) + dh.unsqueeze(0).unsqueeze(0)
+        grid_w = centers_w.unsqueeze(-1) + dw.unsqueeze(0).unsqueeze(0)
+
+        grid_h = grid_h.clamp(0, H - 1)
+        grid_w = grid_w.clamp(0, W - 1)
+
+        grid_h_exp = grid_h.unsqueeze(-1).expand(-1, -1, -1, pw)
+        grid_w_exp = grid_w.unsqueeze(-2).expand(-1, -1, ph, -1)
+
+        linear_idx = (grid_h_exp * W + grid_w_exp).view(B, N * ph * pw)
+
+        x_flat = x.view(B, C, H * W)
+
+        idx_exp = linear_idx.unsqueeze(1).expand(-1, C, -1)
+
+        patches_flat = torch.gather(x_flat, 2, idx_exp)
+
+        patches = patches_flat.view(B, C, N, ph, pw)
+
+        patches = patches.permute(0, 2, 1, 3, 4).contiguous()
+
+        return patches
+
+    def patch_extract(self, x, img_name: dict, centers: list):
+        B, C, H, W = x.size()
+
+        if centers is None:
+            patch_centers = self.patch_generator.generate_patch_centers(
+                H, W, self.patch_size
+            )
+            centers = [patch_centers for _ in range(B)]
+
+        patches = self._extract_patches_from_centers(x, centers)
+        B, N, C, ph, pw = patches.shape
+
+        ############# spt por img #############
+        #######################################
+        #######################################
+        # patches_flat = patches.view(B * N, C, ph, pw)
+        # patches_flat = self.spt(patches_flat)
+        # patches = patches_flat.view(B, N, C, ph, pw)
+
+        patches_conv_in = patches.view(B * N, C, ph, pw)
+
+        if isinstance(self.projection, nn.Conv2d):
+            emb = self.projection(patches_conv_in)
+            emb = emb.view(B, N, -1)
+        else:
+            patches_lin = patches_conv_in.view(B * N, -1)
+            emb = self.projection(patches_lin)
+            emb = emb.view(B, N, -1)
+
+        if img_name is None:
+            return emb
+
+        if isinstance(img_name, str):
+            img_name = [img_name]
 
         each_image = {}
 
-        for b in range(batch_size):
+        B = emb.shape[0]
+        if len(img_name) != B:
+            raise ValueError(
+                f"Inconsistência: img_name tem {len(img_name)} itens, "
+                f"mas emb tem batch size {B}"
+            )
 
-            if self.abordagem_selecionada == "grid":
-                patch_centers = self.patch_generator.generate_patch_centers(
-                    height, width, self.patch_size
-                )
-            elif self.abordagem_selecionada == "sr":
-                patch_centers = (
-                    self.patch_generator.generate_random_patch_centers(
-                        height, width, self.patch_size, self.num_patches
-                    )
-                )
-            else:
-                patch_centers = centers[b]
+        for i, name in enumerate(img_name):
+            each_image[name] = emb[i]
 
-            h_indices = [int(h) for h, _ in patch_centers]
-            w_indices = [int(w) for _, w in patch_centers]
+        return torch.stack([each_image[n] for n in img_name])
 
-            patches = []
 
-            for h_idx, w_idx in zip(h_indices, w_indices):
+class SPTPreConv(nn.Module):
+    def __init__(self, in_ch, shift_k=1, mode="4way"):
+        super().__init__()
+        self.spt = SPTBlock(in_ch, shift_k=shift_k, mode=mode)
 
-                start_h = h_idx - self.patch_size[0] // 2
-                start_w = w_idx - self.patch_size[1] // 2
+        C_total = in_ch * len(self.spt.shift_offsets)
 
-                end_h = start_h + self.patch_size[0]
-                end_w = start_w + self.patch_size[1]
+        self.compress = nn.Conv2d(C_total, in_ch, kernel_size=1)
 
-                if (
-                    0 <= start_h
-                    and start_h + self.patch_size[0] <= height
-                    and 0 <= start_w
-                    and start_w + self.patch_size[1] <= width
-                ):
+    def forward(self, x):
+        x_spt = self.spt.forward(x)
+        return self.compress(x_spt)
 
-                    patch = x[b, :, start_h:end_h, start_w:end_w]
-                    patches.append(patch)
 
-                else:
-                    print(
-                        f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}"
-                    )
+class SPTBlock(nn.Module):
+    def __init__(
+        self, in_ch, shift_k=1, mode="4way", activation=nn.GELU, use_norm=True
+    ):
+        super().__init__()
+        self.k = shift_k
+        self.use_norm = use_norm
+        self.activation = activation()
 
-            patches_tensor = torch.stack(patches)
-            embeddings = self.projection(patches_tensor)
-            each_image[img_name[b]] = embeddings.view(embeddings.size(0), -1)
+        if mode == "4way":
+            self.shift_offsets = [
+                (0, 0),
+                (-self.k, 0),
+                (self.k, 0),
+                (0, -self.k),
+                (0, self.k),
+            ]
 
-        all_images = torch.stack(list(each_image.values()))
-        return all_images
+        elif mode == "8way":
+            self.shift_offsets = [
+                (0, 0),
+                (-self.k, 0),
+                (self.k, 0),
+                (0, -self.k),
+                (0, self.k),
+                (-self.k, -self.k),
+                (-self.k, self.k),
+                (self.k, -self.k),
+                (self.k, self.k),
+            ]
+        else:
+            raise ValueError("Mode inválido")
 
-    def default_extract(self, x, img_name: dict, centers: list):
-        # X -> Tensor de entrada (batch_size, channels, height, width)
+        self.num_shifts = len(self.shift_offsets)
+        in_ch_total = in_ch * self.num_shifts
 
-        batch_size, channels, height, width = x.size()
+        self.dw = nn.Conv2d(
+            in_ch_total,
+            in_ch_total,
+            kernel_size=3,
+            padding=1,
+            groups=in_ch_total,
+            bias=False,
+        )
 
-        all_patches = []
+        self.pw = nn.Conv2d(in_ch_total, in_ch, kernel_size=1, bias=False)
+        self.use_norm = use_norm
+        self.channel_norm = nn.LayerNorm(in_ch)
+        self.activation = activation()
+        self.alpha = nn.Parameter(torch.tensor(0.1))
 
-        ################################################
-        #                   Print de Log               #
-        ################################################
-        # print("Iniciou um loop de batch\n")
-        # print(f"Printando de dentro do CustomPatchEmbedding: {image_names_dict}")
+    def shift_by(self, x, dy, dx):
+        B, C, H, W = x.shape
 
-        for b in range(batch_size):
+        pad_left = max(dx, 0)
+        pad_right = max(-dx, 0)
+        pad_top = max(dy, 0)
+        pad_bottom = max(-dy, 0)
 
-            if self.abordagem_selecionada == "grid":
-                patch_centers = DynamicPatches().generate_patch_centers(
-                    height, width, self.patch_size
-                )
-            elif self.abordagem_selecionada == "sr":
-                patch_centers = DynamicPatches().generate_random_patch_centers(
-                    height, width, self.patch_size, self.num_patches
-                )
-            else:
-                patch_centers = centers[b]
+        x_pad = F.pad(x, (pad_left, pad_right, pad_top, pad_bottom))
+        return x_pad[:, :, pad_top : pad_top + H, pad_left : pad_left + W]
 
-            patches = []
-            h_indices = [int(h) for h, _ in patch_centers]
-            w_indices = [int(w) for _, w in patch_centers]
+    def forward(self, x):
+        shifted = [self.shift_by(x, dy, dx) for (dy, dx) in self.shift_offsets]
+        x_cat = torch.cat(shifted, dim=1)
 
-            for h_idx, w_idx in zip(h_indices, w_indices):
+        y = self.dw(x_cat)
+        y = self.pw(y)
+        y = self.channel_norm(y.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+        y = self.activation(y)
+        return x + self.alpha * y
 
-                start_h = h_idx - self.patch_size[0] // 2
-                start_w = w_idx - self.patch_size[1] // 2
+        # y = self.dw(x_cat)
+        # y = self.pw(y)
 
-                end_h = start_h + self.patch_size[0]
-                end_w = start_w + self.patch_size[1]
+        # # if self.use_norm:
+        # # y = self.channel_norm(y.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
-                if (
-                    0 <= start_h
-                    and start_h + self.patch_size[0] <= height
-                    and 0 <= start_w
-                    and start_w + self.patch_size[1] <= width
-                ):
+        # # y = self.activation(y)
 
-                    patch = x[b, :, start_h:end_h, start_w:end_w]
-                    patches.append(patch)
-                else:
-                    print(
-                        f"Patch fora dos limites: start_h={start_h}, end_h={end_h}, start_w={start_w}, end_w={end_w}"
-                    )
-
-            if len(patches) < self.num_patches:
-                print("ERRO: Gerando patch preto\n\n\n\n\n\n\n\n\n")
-                missing_patches = self.num_patches - len(patches)
-                patches += [
-                    torch.zeros(
-                        channels,
-                        self.patch_size[0],
-                        self.patch_size[1],
-                        device=device,
-                    )
-                ] * missing_patches
-
-            ##################################
-            # Visualização do Patch Tensor
-            ##################################
-            # if self.is_visualizer:
-            # self.visualizer.visualize_patches_with_tensor(patches)
-
-            # self.visualizer.visualize_patch_centers(
-            #     x[b], centers, self.patch_size, image_names_dict[b])
-
-            patches = torch.stack(patches)
-
-            patches = patches.flatten(start_dim=1)
-
-            patches = self.projection(patches)
-
-            all_patches.append(patches)
-
-        all_patches = torch.stack(all_patches).to(device)
-
-        return all_patches
+        # return x + 0.1 * y
+        # # return x + y

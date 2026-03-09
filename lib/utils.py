@@ -26,7 +26,7 @@ def strategy_centers_patch(pde):
         pde_value = []
     elif pde == "sr":
         print("Abordagem selecionada: Seleção Randomica")
-        pde_value = []
+        pde_value = load_dict("./data/centros_pre_salvos/randomico.pkl")
     elif pde == "zigzag":
         pde_value = load_dict("./data/centros_pre_salvos/zigzag_centers.pkl")
         print("Abordagem selecionada: Seleção por ZigZag")

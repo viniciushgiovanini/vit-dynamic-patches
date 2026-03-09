@@ -279,8 +279,8 @@ trainer = pl.Trainer(
 trainer.fit(model, train_loader, val_loader)
 
 # salva modelo Treinado
-# torch.save(model.state_dict(), './models/modelo_vit_gpu.pth')
-torch.save(model, "./models/modelo_vit_gpu.pth")
+# torch.save(model, "./models/modelo_vit_gpu.pth")
+torch.save(model.state_dict(), "./models/modelo_vit_gpu.pth")
 
 #############################################################################
 #               Realiza criação do gráfico de loss e acuracia
@@ -362,7 +362,9 @@ print(f"Acurácia no conjunto de validação: {accuracy * 100:.2f}%")
 
 best_model_path = checkpoint_callback.best_model_path
 print(f"Best model path: {best_model_path}")
-model.load_state_dict(torch.load(best_model_path)["state_dict"])
+checkpoint = torch.load(best_model_path, weights_only=False)
+model.load_state_dict(checkpoint["state_dict"])
+
 
 model.to(device)
 

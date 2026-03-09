@@ -40,8 +40,9 @@ class CustomVITPatchEmbeddings(nn.Module):
         self.abordagem_selecionada = abordagem_selecionada
 
         # self.shift_pixels = 1
+        self.spt = SPTBlock(input_size[0], shift_k=1, mode="4way")
         # self.spt = SPTBlock(input_size[0], shift_k=8, mode="8way")
-        # self.spt = SPTPreConv(input_size[0], shift_k=1, mode="8way")
+        # self.spt = SPTPreConv(input_size[0], shift_k=1, mode="4way")
 
         if projection_type == "linear":
             self.projection = nn.Linear(
@@ -65,7 +66,7 @@ class CustomVITPatchEmbeddings(nn.Module):
         centers_images = centers_images.tolist()
 
         # x = self.shifted_patch_tokenization(x, shift_pixels=self.shift_pixels)
-        # x = self.spt(x)
+        x = self.spt(x)
 
         return self.patch_extract(x, img_name=img_name, centers=centers_images)
 
@@ -126,6 +127,13 @@ class CustomVITPatchEmbeddings(nn.Module):
         patches = self._extract_patches_from_centers(x, centers)
         B, N, C, ph, pw = patches.shape
 
+        ############# spt por img #############
+        #######################################
+        #######################################
+        # patches_flat = patches.view(B * N, C, ph, pw)
+        # patches_flat = self.spt(patches_flat)
+        # patches = patches_flat.view(B, N, C, ph, pw)
+
         patches_conv_in = patches.view(B * N, C, ph, pw)
 
         if isinstance(self.projection, nn.Conv2d):
@@ -172,9 +180,13 @@ class SPTPreConv(nn.Module):
 
 
 class SPTBlock(nn.Module):
-    def __init__(self, in_ch, shift_k=1, mode="4way"):
+    def __init__(
+        self, in_ch, shift_k=1, mode="4way", activation=nn.GELU, use_norm=True
+    ):
         super().__init__()
         self.k = shift_k
+        self.use_norm = use_norm
+        self.activation = activation()
 
         if mode == "4way":
             self.shift_offsets = [
@@ -213,6 +225,10 @@ class SPTBlock(nn.Module):
         )
 
         self.pw = nn.Conv2d(in_ch_total, in_ch, kernel_size=1, bias=False)
+        self.use_norm = use_norm
+        self.channel_norm = nn.LayerNorm(in_ch)
+        self.activation = activation()
+        self.alpha = nn.Parameter(torch.tensor(0.1))
 
     def shift_by(self, x, dy, dx):
         B, C, H, W = x.shape
@@ -227,9 +243,21 @@ class SPTBlock(nn.Module):
 
     def forward(self, x):
         shifted = [self.shift_by(x, dy, dx) for (dy, dx) in self.shift_offsets]
-
         x_cat = torch.cat(shifted, dim=1)
 
-        y = self.pw(self.dw(x_cat))
+        y = self.dw(x_cat)
+        y = self.pw(y)
+        y = self.channel_norm(y.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+        y = self.activation(y)
+        return x + self.alpha * y
 
-        return x + y
+        # y = self.dw(x_cat)
+        # y = self.pw(y)
+
+        # # if self.use_norm:
+        # # y = self.channel_norm(y.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+
+        # # y = self.activation(y)
+
+        # return x + 0.1 * y
+        # # return x + y

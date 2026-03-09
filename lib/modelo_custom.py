@@ -6,9 +6,9 @@ import torch.nn as nn
 from transformers import ViTForImageClassification, ViTModel
 
 from lib.dynamic_patches import DynamicPatches
-from lib.utils import load_dict
 from lib.VITEmbeddings import CustomViTEmbeddings
 from lib.ViTPatchEmbeddings import CustomVITPatchEmbeddings
+from lib.VITSelfAttention import ViTSelfAttentionCustom
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -96,6 +96,21 @@ class ModeloCustom(pl.LightningModule):
             "CustomPatchEmbeddings"
         ]
 
+        self_attention = [
+            (i, layer.attention.attention)
+            for i, layer in enumerate(base_model.encoder.layer)
+        ]
+
+        self_attention_custom = [
+            ViTSelfAttentionCustom(
+                config=base_model.config, defaultSelfAttention=x
+            )
+            for x in self_attention
+        ]
+
+        for (i, _), custom_attn in zip(self_attention, self_attention_custom):
+            base_model.encoder.layer[i].attention.attention = custom_attn
+
         if argumentos.projecao == "conv":
 
             self.model.vit.embeddings.patch_embeddings.projection.weight.data.copy_(
@@ -172,19 +187,10 @@ class ModeloCustom(pl.LightningModule):
         centers_image=None,
     ):
 
-        if self.argumentos.pde == "sr":
-            centers_batch = []
-
-            for _ in range(len(x)):
-                centers = self.patch_generator.generate_random_patch_centers(
-                    self.input_size[0],
-                    self.input_size[1],
-                    self.patch_size,
-                    self.num_patches,
-                )
-                centers_batch.append(centers)
-
-            centers_image = torch.tensor(centers_batch, dtype=torch.float32)
+        for i in range(0, 11):
+            self.model.vit.encoder.layer[
+                i
+            ].attention.attention.current_centers = (image_name, centers_image)
 
         self.model.vit.embeddings.patch_embeddings.current_centers_image = (
             image_name,
@@ -255,7 +261,7 @@ class ModeloCustom(pl.LightningModule):
             self.parameters(),
             lr=self.learning_rate,
             momentum=0.9,
-            weight_decay=1e-3,
+            # weight_decay=1e-3,
         )
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(

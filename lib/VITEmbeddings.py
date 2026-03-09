@@ -48,7 +48,7 @@ class CustomViTEmbeddings(nn.Module):
 
         _, centers_images = getattr(self, "current_centers_image_PE", None)
 
-        batch_size, _1, height, width = pixel_values.shape
+        batch_size, _, height, width = pixel_values.shape
 
         embeddings = self.patch_embeddings(pixel_values)
 
@@ -77,7 +77,7 @@ class CustomViTEmbeddings(nn.Module):
         embeddings = self.dropout(embeddings)
         return embeddings
 
-    def reorder_position_embbeddings(
+    def reorder_position_embeddings(
         self,
         model,
         centers_with_idx: list,

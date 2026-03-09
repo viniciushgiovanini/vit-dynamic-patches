@@ -45,19 +45,15 @@ class ViTSelfAttentionCustom(nn.Module):
         key_layer = self.transpose_for_scores(self.key(hidden_states))
         value_layer = self.transpose_for_scores(self.value(hidden_states))
 
-        # scores globais
         attention_scores = torch.matmul(
             query_layer, key_layer.transpose(-1, -2)
         )
 
-        # escala com temperatura aprendível
-        # clamp evita instabilidade numérica
         temp = torch.clamp(self.temperature, min=1e-4)
         attention_scores = attention_scores / (
             math.sqrt(self.attention_head_size) * temp
         )
 
-        # Bloqueio rígido da diagonal (token não olha para si mesmo)
         n_tokens = attention_scores.size(-1)
         eye = torch.eye(
             n_tokens, device=attention_scores.device, dtype=torch.bool
